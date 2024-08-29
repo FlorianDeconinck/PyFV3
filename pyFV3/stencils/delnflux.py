@@ -194,6 +194,7 @@ def copy_corners_y_nord(
 
     with computation(PARALLEL), interval(...):
         if nord > current_nord:
+            q_out = q_out  # ToDo: TO BE REMOVED WHEN WE HAVE CLEANER BRIDGE
             with horizontal(
                 region[i_start - 3, j_start - 3], region[i_start - 3, j_end + 3]
             ):
@@ -280,6 +281,7 @@ def copy_corners_x_nord(
 
     with computation(PARALLEL), interval(...):
         if nord > current_nord:
+            q_out = q_out  # ToDo: TO BE REMOVED WHEN WE HAVE CLEANER BRIDGE
             with horizontal(
                 region[i_start - 3, j_start - 3], region[i_end + 3, j_start - 3]
             ):
