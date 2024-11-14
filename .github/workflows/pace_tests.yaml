@@ -1,6 +1,7 @@
 name: "pace main tests"
 on:
-  pull_request:
+  workflow_call:
+  # pull_request:
 
 jobs:
   pace_main_tests:
