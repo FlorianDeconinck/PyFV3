@@ -46,7 +46,7 @@ def fx1_fn(courant, br, b0, bl):
 
 @gtscript.function
 def get_advection_mask(bl, b0, br):
-    from __externals__ import mord, i_start, i_end
+    from __externals__ import i_end, i_start, mord
 
     if __INLINED(mord == 5):
         smt5 = bl * br < 0
