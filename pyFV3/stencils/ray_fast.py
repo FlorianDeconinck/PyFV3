@@ -10,6 +10,7 @@ from gt4py.cartesian.gtscript import (
     log,
     region,
     sin,
+    f64,
 )
 
 import ndsl.constants as constants
@@ -18,7 +19,7 @@ from ndsl.constants import X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.typing import Float, FloatField, FloatFieldK
 
 
-SDAY = 86400.0
+SDAY = Float(86400.0)
 
 
 # NOTE: The fortran version of this computes rf in the first timestep only. Then
@@ -36,7 +37,7 @@ def compute_rf_vals(pfull, bdt, rf_cutoff, tau0, ptop):
 @gtscript.function
 def compute_rff_vals(pfull, dt, rf_cutoff, tau0, ptop):
     rffvals = compute_rf_vals(pfull, dt, rf_cutoff, tau0, ptop)
-    rffvals = 1.0 / (1.0 + rffvals)
+    rffvals = f64(1.0) / (f64(1.0) + rffvals)
     return rffvals
 
 
@@ -155,13 +156,25 @@ class RayleighDamping:
     Fortran name: ray_fast.
     """
 
-    def __init__(self, stencil_factory: StencilFactory, rf_cutoff, tau, hydrostatic):
+    def __init__(
+        self,
+        stencil_factory: StencilFactory,
+        rf_cutoff: Float,
+        tau: Float,
+        hydrostatic: bool,
+    ):
         orchestrate(obj=self, config=stencil_factory.config.dace_config)
         grid_indexing = stencil_factory.grid_indexing
-        self._rf_cutoff = rf_cutoff
+        self._rf_cutoff = Float(rf_cutoff)
         origin, domain = grid_indexing.get_origin_domain(
             [X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM]
         )
+
+        if tau == 0:
+            raise NotImplementedError(
+                "Dynamical Core (fv_dynamics): RayleighDamping,"
+                " with tau <= 0, is not implemented"
+            )
 
         ax_offsets = grid_indexing.axis_offsets(origin, domain)
         local_axis_offsets = {}
@@ -175,7 +188,7 @@ class RayleighDamping:
             domain=domain,
             externals={
                 "hydrostatic": hydrostatic,
-                "rf_cutoff": rf_cutoff,
+                "rf_cutoff": self._rf_cutoff,
                 "tau": tau,
                 **local_axis_offsets,
             },
@@ -191,7 +204,7 @@ class RayleighDamping:
         dt: Float,
         ptop: Float,
     ):
-        rf_cutoff_nudge = self._rf_cutoff + min(100.0, 10.0 * ptop)
+        rf_cutoff_nudge = self._rf_cutoff + min(Float(100.0), Float(10.0) * ptop)
 
         self._ray_fast_wind_compute(
             u,
