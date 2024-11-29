@@ -5,12 +5,12 @@ from gt4py.cartesian.gtscript import (
     FORWARD,
     PARALLEL,
     computation,
+    f64,
     horizontal,
     interval,
     log,
     region,
     sin,
-    f64,
 )
 
 import ndsl.constants as constants
