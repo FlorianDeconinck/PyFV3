@@ -1,6 +1,7 @@
 from typing import Optional
 
 import gt4py.cartesian.gtscript as gtscript
+import numpy as np
 from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval, region
 
 from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
@@ -8,7 +9,6 @@ from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.stencil import get_stencils_with_varied_bounds
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients
-import numpy as np
 
 
 def calc_damp(damp_c: Quantity, da_min: Float, nord: Quantity) -> Quantity:
