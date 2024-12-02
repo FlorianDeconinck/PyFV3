@@ -15,11 +15,8 @@ from gt4py.cartesian.gtscript import (
 
 import ndsl.constants as constants
 from ndsl import StencilFactory, orchestrate
-from ndsl.constants import X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM
+from ndsl.constants import SECONDS_PER_DAY, X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.typing import Float, FloatField, FloatFieldK
-
-
-SDAY = Float(86400.0)
 
 
 # NOTE: The fortran version of this computes rf in the first timestep only. Then
@@ -77,7 +74,7 @@ def ray_fast_wind_compute(
         if pfull < rf_cutoff:
             # rf is rayleigh damping increment, fraction of vertical velocity
             # left after doing rayleigh damping (w -> w * rf)
-            rf = compute_rff_vals(pfull, dt, rf_cutoff, tau * SDAY, ptop)
+            rf = compute_rff_vals(pfull, dt, rf_cutoff, tau * SECONDS_PER_DAY, ptop)
     with computation(FORWARD):
         with interval(0, 1):
             if pfull < rf_cutoff_nudge:
