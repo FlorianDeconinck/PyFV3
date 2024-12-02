@@ -8,6 +8,7 @@ from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.stencil import get_stencils_with_varied_bounds
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients
+import numpy as np
 
 
 def calc_damp(damp_c: Quantity, da_min: Float, nord: Quantity) -> Quantity:
@@ -16,7 +17,7 @@ def calc_damp(damp_c: Quantity, da_min: Float, nord: Quantity) -> Quantity:
             "current implementation requires damp_c and nord to have "
             "identical data shape and dims"
         )
-    data = (damp_c.data * da_min) ** (nord.data + 1)
+    data = np.power((damp_c.data * da_min), (nord.data + 1), dtype=Float)
     return Quantity(
         data=data,
         dims=damp_c.dims,
@@ -97,7 +98,7 @@ def fx_calculation(q: FloatField, del6_v: FloatField):
 
 @gtscript.function
 def fx_calculation_neg(q: FloatField, del6_v: FloatField):
-    return -del6_v * (q[-1, 0, 0] - q)
+    return del6_v * (q - q[-1, 0, 0])
 
 
 @gtscript.function
@@ -107,7 +108,7 @@ def fy_calculation(q: FloatField, del6_u: FloatField):
 
 @gtscript.function
 def fy_calculation_neg(q: FloatField, del6_u: FloatField):
-    return -del6_u * (q[0, -1, 0] - q)
+    return del6_u * (q - q[0, -1, 0])
 
 
 def d2_highorder_stencil(
@@ -120,7 +121,7 @@ def d2_highorder_stencil(
 ):
     with computation(PARALLEL), interval(...):
         if nord > current_nord:
-            d2 = ((fx - fx[1, 0, 0]) + (fy - fy[0, 1, 0])) * rarea
+            d2 = (fx - fx[1, 0, 0] + fy - fy[0, 1, 0]) * rarea
 
 
 def d2_damp_interval(
@@ -178,8 +179,8 @@ def diffusive_damp(
     damp: FloatFieldK,
 ):
     with computation(PARALLEL), interval(...):
-        fx = fx + 0.5 * damp * (mass[-1, 0, 0] + mass) * fx2
-        fy = fy + 0.5 * damp * (mass[0, -1, 0] + mass) * fy2
+        fx = fx + (0.5 * damp) * (mass[-1, 0, 0] + mass) * fx2
+        fy = fy + (0.5 * damp) * (mass[0, -1, 0] + mass) * fy2
 
 
 def copy_corners_y_nord(
