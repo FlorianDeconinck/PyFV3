@@ -26,7 +26,7 @@ from pyFV3.stencils.ytp_v import advect_v_along_y
 from pyFV3.version import IS_GEOS
 
 
-dcon_threshold = 1e-5
+dcon_threshold = Float(1e-5)
 
 
 def flux_capacitor(
@@ -92,6 +92,8 @@ def heat_diss(
         damp_w (in):
         ke_bg (in):
     """
+    from __externals__ import do_stochastic_ke_backscatter
+
     with computation(PARALLEL), interval(...):
         heat_source = 0.0
         diss_est = 0.0
@@ -99,7 +101,8 @@ def heat_diss(
             dd8 = ke_bg * abs(dt)
             dw = (fx2 - fx2[1, 0, 0] + fy2 - fy2[0, 1, 0]) * rarea
             heat_source = dd8 - dw * (w + 0.5 * dw)
-            diss_est = heat_source
+            if __INLINED(do_stochastic_ke_backscatter):
+                diss_est = heat_source
 
 
 @gtscript.function
@@ -373,9 +376,7 @@ def vort_differencing(
     from __externals__ import local_ie, local_is, local_je, local_js
 
     with computation(PARALLEL), interval(...):
-        # TODO: this should likely be dcon[k] rather than dcon[0] so that this
-        # can be turned on and off per-layer
-        if dcon[0] > dcon_threshold:
+        if dcon > dcon_threshold:
             # Creating a gtscript function for the ub/vb computation
             # results in an "NotImplementedError" error for Jenkins
             # Inlining the ub/vb computation in this stencil resolves the Jenkins error
@@ -537,7 +538,6 @@ def heat_source_from_vorticity_damping(
             to explicitly damp and convert into heat.
     """
     from __externals__ import (  # noqa (see below)
-        d_con,
         do_stochastic_ke_backscatter,
         local_ie,
         local_is,
@@ -631,24 +631,15 @@ def set_low_kvals(col: Mapping[str, Quantity], k):
 
 # For the column namelist at a specific k-level
 # set the vorticity parameters if do_vort_damp is true
-def vorticity_damping_option_FV3GFS(column, k, do_vort_damp):
+def vorticity_damping_option(column, k, do_vort_damp):
     if do_vort_damp:
         column["nord_v"].view[k] = 0
         column["damp_vt"].view[k] = 0.5 * column["d2_divg"].view[k]
 
 
-def vorticity_damping_option_GEOS(column, k, do_vort_damp):
-    # GEOS does not set damp_vt
-    if do_vort_damp:
-        column["nord_v"].view[k] = 0
-
-
 def lowest_kvals(column, k, do_vort_damp):
     set_low_kvals(column, k)
-    if IS_GEOS:
-        vorticity_damping_option_GEOS(column, k, do_vort_damp)
-    else:
-        vorticity_damping_option_FV3GFS(column, k, do_vort_damp)
+    vorticity_damping_option(column, k, do_vort_damp)
 
 
 def get_column_namelist(
@@ -993,6 +984,9 @@ class DGridShallowWaterLagrangianDynamics:
         self._heat_diss_stencil = stencil_factory.from_dims_halo(
             func=heat_diss,
             compute_dims=[X_DIM, Y_DIM, Z_DIM],
+            externals={
+                "do_stochastic_ke_backscatter": config.do_skeb,
+            },
         )
         self._heat_source_from_vorticity_damping_stencil = (
             stencil_factory.from_dims_halo(
@@ -1034,30 +1028,30 @@ class DGridShallowWaterLagrangianDynamics:
 
     def __call__(
         self,
-        delpc,
-        delp,
-        pt,
-        u,
-        v,
-        w,
-        uc,
-        vc,
-        ua,
-        va,
-        divgd,
-        mfx,
-        mfy,
-        cx,
-        cy,
-        crx,
-        cry,
-        xfx,
-        yfx,
-        q_con,
-        zh,
-        heat_source,
-        diss_est,
-        dt,
+        delpc: FloatField,
+        delp: FloatField,
+        pt: FloatField,
+        u: FloatField,
+        v: FloatField,
+        w: FloatField,
+        uc: FloatField,
+        vc: FloatField,
+        ua: FloatField,
+        va: FloatField,
+        divgd: FloatField,
+        mfx: FloatField,
+        mfy: FloatField,
+        cx: FloatField,
+        cy: FloatField,
+        crx: FloatField,
+        cry: FloatField,
+        xfx: FloatField,
+        yfx: FloatField,
+        q_con: FloatField,
+        zh: FloatField,
+        heat_source: FloatField,
+        diss_est: FloatField,
+        dt: Float,
     ):
         """
         D-Grid shallow water routine, peforms a full-timestep advance
