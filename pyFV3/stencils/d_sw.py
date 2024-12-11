@@ -12,7 +12,7 @@ from gt4py.cartesian.gtscript import (
 
 from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
-from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
+from ndsl.dsl.typing import Float, FloatField, FloatField64, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients, GridData
 from pyFV3._config import DGridShallowWaterLagrangianDynamicsConfig
 from pyFV3.stencils import delnflux
@@ -30,10 +30,10 @@ dcon_threshold = Float(1e-5)
 
 
 def flux_capacitor(
-    cx: FloatField,
-    cy: FloatField,
-    xflux: FloatField,
-    yflux: FloatField,
+    cx: FloatField64,
+    cy: FloatField64,
+    xflux: FloatField64,
+    yflux: FloatField64,
     crx_adv: FloatField,
     cry_adv: FloatField,
     fx: FloatField,
@@ -1039,10 +1039,10 @@ class DGridShallowWaterLagrangianDynamics:
         ua: FloatField,
         va: FloatField,
         divgd: FloatField,
-        mfx: FloatField,
-        mfy: FloatField,
-        cx: FloatField,
-        cy: FloatField,
+        mfx: FloatField64,
+        mfy: FloatField64,
+        cx: FloatField64,
+        cy: FloatField64,
         crx: FloatField,
         cry: FloatField,
         xfx: FloatField,
