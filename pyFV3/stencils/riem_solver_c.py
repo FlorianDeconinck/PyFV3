@@ -187,7 +187,7 @@ class NonhydrostaticVerticalSolverCGrid:
         )
         self._sim1_solve = Sim1Solver(
             stencil_factory,
-            p_fac,
+            Float(p_fac),
             n_halo=1,
         )
         self._finalize_stencil = stencil_factory.from_origin_domain(

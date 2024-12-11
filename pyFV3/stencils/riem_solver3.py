@@ -1,6 +1,6 @@
-import math
 import typing
 
+import numpy as np
 from gt4py.cartesian.gtscript import (
     __INLINED,
     BACKWARD,
@@ -162,7 +162,7 @@ class NonhydrostaticVerticalSolver:
         grid_indexing = stencil_factory.grid_indexing
         self._sim1_solve = Sim1Solver(
             stencil_factory,
-            config.p_fac,
+            Float(config.p_fac),
             n_halo=0,
         )
         orchestrate(
@@ -215,7 +215,7 @@ class NonhydrostaticVerticalSolver:
         )
         self._finalize_stencil = stencil_factory.from_origin_domain(
             finalize,
-            externals={"use_logp": config.use_logp, "beta": config.beta},
+            externals={"use_logp": config.use_logp, "beta": Float(config.beta)},
             origin=riemorigin,
             domain=domain,
         )
@@ -284,9 +284,9 @@ class NonhydrostaticVerticalSolver:
         # gm2 is gamma (cp/cv)
         # dz2 is delz
 
-        peln1 = math.log(ptop)
+        peln1 = np.log(ptop, dtype=Float)
         # ptk = ptop ** kappa
-        ptk = math.exp(constants.KAPPA * peln1)
+        ptk = np.exp(constants.KAPPA * peln1, dtype=Float)
 
         self._precompute_stencil(
             delp,
