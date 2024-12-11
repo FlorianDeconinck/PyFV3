@@ -19,16 +19,16 @@ from ndsl.stencils.basic_operations import copy_defn
 
 
 # comact 4-pt cubic interpolation
-c1 = 2.0 / 3.0
-c2 = -1.0 / 6.0
-d1 = 0.375
-d2 = -1.0 / 24.0
+c1 = Float(2.0) / Float(3.0)
+c2 = Float(-1.0) / Float(6.0)
+d1 = Float(0.375)
+d2 = Float(-1.0) / Float(24.0)
 # PPM volume mean form
-b1 = 7.0 / 12.0
-b2 = -1.0 / 12.0
+b1 = Float(7.0) / Float(12.0)
+b2 = Float(-1.0) / Float(12.0)
 # 4-pt Lagrange interpolation
-a1 = 9.0 / 16.0
-a2 = -1.0 / 16.0
+a1 = Float(9.0) / Float(16.0)
+a2 = Float(-1.0) / Float(16.0)
 
 
 @gtscript.function
