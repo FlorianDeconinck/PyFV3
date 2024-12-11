@@ -199,8 +199,8 @@ class Sim1Solver:
 
         # TODO: email Lucas about any remaining variable naming here
 
-        t1g = 2.0 * dt * dt
-        rdt = 1.0 / dt
+        t1g = Float(2.0) * dt * dt
+        rdt = Float(1.0) / dt
         self._compute_sim1_solve(
             w,
             delta_mass,
