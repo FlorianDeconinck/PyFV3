@@ -9,9 +9,9 @@ from ndsl.stencils import corners
 from pyFV3.stencils.a2b_ord4 import a1, a2, lagrange_x_func, lagrange_y_func
 
 
-c1 = -2.0 / 14.0
-c2 = 11.0 / 14.0
-c3 = 5.0 / 14.0
+c1 = Float(-2.0) / Float(14.0)
+c2 = Float(11.0) / Float(14.0)
+c3 = Float(5.0) / Float(14.0)
 OFFSET = 2
 
 
@@ -409,7 +409,7 @@ class DGrid2AGrid2CGridVectors:
         self._sin_sg4 = grid_data.sin_sg4
         self._grid_type = grid_type
 
-        self._big_number = 1e30  # 1e8 if 32 bit
+        self._big_number = Float(1e30)  # 1e8 if 32 bit
         nx = grid_indexing.iec + 1  # grid.npx + 2
         ny = grid_indexing.jec + 1  # grid.npy + 2
         i1 = grid_indexing.isc - 1
