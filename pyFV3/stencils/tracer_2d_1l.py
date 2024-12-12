@@ -22,6 +22,7 @@ from ndsl.constants import (
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.typing import Communicator
 from pyFV3.stencils.fvtp2d import FiniteVolumeTransport
+from pyFV3.tracers import Tracers
 
 
 @gtscript.function
@@ -192,7 +193,7 @@ class TracerAdvection:
         transport: FiniteVolumeTransport,
         grid_data,
         comm: Communicator,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
     ):
         orchestrate(
             obj=self,
@@ -201,7 +202,7 @@ class TracerAdvection:
         )
         grid_indexing = stencil_factory.grid_indexing
         self.grid_indexing = grid_indexing  # needed for selective validation
-        self._tracer_count = len(tracers)
+        self._tracer_count = tracers.count
         self.grid_data = grid_data
 
         self._x_area_flux = quantity_factory.zeros(
@@ -283,14 +284,14 @@ class TracerAdvection:
             dtype=Float,
         )
         self._tracers_halo_updater = WrappedHaloUpdater(
-            comm.get_scalar_halo_updater([tracer_halo_spec] * self._tracer_count),
-            tracers,
-            [t for t in tracers.keys()],
+            comm.get_scalar_halo_updater([tracer_halo_spec] * tracers.count),
+            tracers.as_dict(),
+            [t for t in tracers.names()],
         )
 
     def __call__(
         self,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
         dp1,
         x_mass_flux,
         y_mass_flux,
