@@ -32,5 +32,6 @@ Branches:
 - 🔶 `fix/F32/UpdateDzD`@Florian: Fix for fluxes gradient & python computation
 - ⚙️ `fix/GEOS/D_SW`@Florian: Fix D_SW heat dissipation and column calculation (partial pass)
 - ⚙️ `fix/GEOSv11_4_2/A2B_Ord4`@Florian: Fix for 32-bit A2B_Ord4
-- ⚙️ `fix/GEOSv11_4_2/RiemanSolver`@FlorianL: Fix for 32-bit A2B_Ord4
-- ⚙️ `fix/GEOSv11_4_2/C_SW`: Fix for C_SW for 32-bit
+- ⚙️ `fix/GEOSv11_4_2/RiemanSolver`@Florian: Fix for 32-bit A2B_Ord4
+- ⚙️ `fix/GEOSv11_4_2/C_SW`@Florian: Fix for C_SW for 32-bit
+- ⚙️ `fix/GEOSv11_4_2/Dyncore`@Florian: Fix for Acoustics and DycoreState for 32-bit
