@@ -31,6 +31,7 @@ from pyFV3.stencils.map_single import MapSingle
 from pyFV3.stencils.mapn_tracer import MapNTracer
 from pyFV3.stencils.moist_cv import moist_pt_func, moist_pt_last_step
 from pyFV3.stencils.saturation_adjustment import SatAdjust3d
+from pyFV3.tracers import Tracers
 
 
 # TODO: Should this be set here or in global_constants?
@@ -292,9 +293,8 @@ class LagrangianToEulerian:
         quantity_factory: QuantityFactory,
         config: RemappingConfig,
         area_64,
-        nq,
         pfull,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
         checkpointer: Optional[Checkpointer] = None,
     ):
         orchestrate(
@@ -314,7 +314,6 @@ class LagrangianToEulerian:
             raise NotImplementedError("Hydrostatic is not implemented")
 
         self._t_min = 184.0
-        self._nq = nq
         # do_omega = hydrostatic and last_step # TODO pull into inputs
         self._domain_jextra = (
             grid_indexing.domain[0],
@@ -410,7 +409,6 @@ class LagrangianToEulerian:
             stencil_factory,
             quantity_factory,
             abs(config.kord_tr),
-            nq,
             fill=config.fill,
             tracers=tracers,
         )
@@ -518,7 +516,7 @@ class LagrangianToEulerian:
 
     def __call__(
         self,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
         pt: FloatField,
         delp: FloatField,
         delz: FloatField,
@@ -528,7 +526,6 @@ class LagrangianToEulerian:
         w: FloatField,
         cappa: FloatField,
         q_con: FloatField,
-        q_cld: FloatField,
         pkz: FloatField,
         pk: FloatField,
         pe: FloatField,
@@ -562,7 +559,6 @@ class LagrangianToEulerian:
             va (inout): A-grid y-velocity
             cappa (inout): Power to raise pressure to
             q_con (out): Total condensate mixing ratio
-            q_cld (out): Cloud fraction
             pkz (in): Layer mean pressure raised to the power of Kappa
             pk (out): Interface pressure raised to power of kappa, final acoustic value
             pe (in): Pressure at layer edges
@@ -593,12 +589,12 @@ class LagrangianToEulerian:
         # pe2 is final Eulerian edge pressures
 
         self._moist_cv_pt_pressure(
-            tracers["qvapor"],
-            tracers["qliquid"],
-            tracers["qrain"],
-            tracers["qsnow"],
-            tracers["qice"],
-            tracers["qgraupel"],
+            tracers["vapor"],
+            tracers["liquid"],
+            tracers["rain"],
+            tracers["snow"],
+            tracers["ice"],
+            tracers["graupel"],
             q_con,
             pt,
             cappa,
@@ -633,12 +629,12 @@ class LagrangianToEulerian:
         # it clear the outputs are not needed until then?
         # or, are its outputs actually used? can we delete this stencil call?
         self._moist_cv_pkz(
-            tracers["qvapor"],
-            tracers["qliquid"],
-            tracers["qrain"],
-            tracers["qsnow"],
-            tracers["qice"],
-            tracers["qgraupel"],
+            tracers["vapor"],
+            tracers["liquid"],
+            tracers["rain"],
+            tracers["snow"],
+            tracers["ice"],
+            tracers["graupel"],
             q_con,
             self._gz,
             self._cvm,
@@ -683,13 +679,13 @@ class LagrangianToEulerian:
             fast_mp_consv = consv_te > CONSV_MIN
             self._saturation_adjustment(
                 dp1,
-                tracers["qvapor"],
-                tracers["qliquid"],
-                tracers["qice"],
-                tracers["qrain"],
-                tracers["qsnow"],
-                tracers["qgraupel"],
-                q_cld,
+                tracers["vapor"],
+                tracers["liquid"],
+                tracers["ice"],
+                tracers["rain"],
+                tracers["snow"],
+                tracers["graupel"],
+                tracers["cloud"],
                 hs,
                 peln,
                 delp,
@@ -711,12 +707,12 @@ class LagrangianToEulerian:
             # to the physics, but if we're staying in dynamics we need
             # to keep it as the virtual potential temperature
             self._moist_cv_last_step_stencil(
-                tracers["qvapor"],
-                tracers["qliquid"],
-                tracers["qrain"],
-                tracers["qsnow"],
-                tracers["qice"],
-                tracers["qgraupel"],
+                tracers["vapor"],
+                tracers["liquid"],
+                tracers["rain"],
+                tracers["snow"],
+                tracers["ice"],
+                tracers["graupel"],
                 self._gz,
                 pt,
                 pkz,
