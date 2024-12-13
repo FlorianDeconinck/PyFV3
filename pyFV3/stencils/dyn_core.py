@@ -40,7 +40,7 @@ from ndsl.constants import (
     Z_INTERFACE_DIM,
 )
 from ndsl.dsl.dace.orchestration import dace_inhibitor
-from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
+from ndsl.dsl.typing import Float, FloatField, FloatField64, FloatFieldIJ
 from ndsl.grid import DampingCoefficients, GridData
 from ndsl.typing import Checkpointer, Communicator
 from pyFV3._config import AcousticDynamicsConfig
@@ -59,10 +59,10 @@ else:
 
 
 def zero_data(
-    mfxd: FloatField,
-    mfyd: FloatField,
-    cxd: FloatField,
-    cyd: FloatField,
+    mfxd: FloatField64,
+    mfyd: FloatField64,
+    cxd: FloatField64,
+    cyd: FloatField64,
     heat_source: FloatField,
     diss_estd: FloatField,
     first_timestep: bool,
@@ -442,7 +442,15 @@ class AcousticDynamics:
         if config.d_ext != 0:
             raise RuntimeError("Acoustics (dyn_core): d_ext != 0 is not implemented")
         if config.beta != 0:
-            raise RuntimeError("Acoustics (dyn_core): beta != 0 is not implemented")
+            raise RuntimeError(
+                "Acoustics (dyn_core): beta != 0 is not implemented"
+                " (split_p_grad, etc.)"
+            )
+        if config.beta < -0.1:
+            raise RuntimeError(
+                "Acoustics (dyn_core): beta < 0.1 is not implemented"
+                " (one_grad_p, etc.)"
+            )
         if config.use_logp:
             raise RuntimeError("Acoustics (dyn_core): use_logp=True is not implemented")
         self._da_min = damping_coefficients.da_min
@@ -460,6 +468,7 @@ class AcousticDynamics:
                 quantity_factory=quantity_factory,
                 grid_data=grid_data,
                 grid_type=config.grid_type,
+                use_logp=config.use_logp,
             )
         )
         self._akap = Float(constants.KAPPA)
@@ -643,8 +652,8 @@ class AcousticDynamics:
 
     # See divergence_damping.py, _get_da_min for explanation of this function
     @dace_inhibitor
-    def _get_da_min(self) -> float:
-        return self._da_min
+    def _get_da_min(self) -> Float:
+        return Float(self._da_min)
 
     def _checkpoint_csw(self, state: DycoreState, tag: str):
         if self.call_checkpointer:
@@ -712,12 +721,12 @@ class AcousticDynamics:
     # See https://github.com/GEOS-ESM/pace/issues/9
     @dace_inhibitor
     def dt_acoustic_substep(self, timestep: Float) -> Float:
-        return timestep / self.config.n_split
+        return Float(timestep / self.config.n_split)
 
     # TODO: Same as above
     @dace_inhibitor
     def dt2(self, dt_acoustic_substep: Float) -> Float:
-        return 0.5 * dt_acoustic_substep
+        return Float(0.5) * dt_acoustic_substep
 
     def __call__(
         self,
@@ -730,8 +739,8 @@ class AcousticDynamics:
         # akap, ptop, n_map, comm):
         end_step = n_map == self.config.k_split
         # dt = state.mdt / self.config.n_split
-        dt_acoustic_substep: Float = self.dt_acoustic_substep(timestep)
-        dt2: Float = self.dt2(dt_acoustic_substep)
+        dt_acoustic_substep = self.dt_acoustic_substep(timestep)
+        dt2 = self.dt2(dt_acoustic_substep)
         n_split = self.config.n_split
         # NOTE: In Fortran model the halo update starts happens in fv_dynamics, not here
         self._halo_updaters.q_con__cappa.start()
@@ -995,19 +1004,18 @@ class AcousticDynamics:
                 if self.config.grid_type < 4:
                     self._halo_updaters.interface_uc__vc.interface()
 
-        # we are here
-
         if self._do_del2cubed:
             self._halo_updaters.heat_source.update()
             # TODO: move dependence on da_min into init of hyperdiffusion class
-            da_min: Float = self._get_da_min()
-            cd = constants.CNST_0P20 * da_min
+            cd = constants.CNST_0P20 * self._get_da_min()
             # we want to diffuse the heat source from damping before we apply it,
             # so that we don't reinforce the same grid-scale patterns we're trying
             # to damp
             self._hyperdiffusion(self._heat_source, cd)
             if not self.config.hydrostatic:
-                delt_time_factor = abs(dt_acoustic_substep * self.config.delt_max)
+                delt_time_factor = abs(
+                    dt_acoustic_substep * Float(self.config.delt_max)
+                )
                 # TODO: it looks like state.pkz is being used as a temporary here,
                 # and overwritten at the start of remapping. See if we can make it
                 # an internal temporary of this stencil.

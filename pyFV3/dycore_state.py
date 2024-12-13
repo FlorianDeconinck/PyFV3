@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Dict, Mapping, Optional, Union
 
 import xarray as xr
 
@@ -310,17 +310,27 @@ class DycoreState:
                         )
 
     @classmethod
-    def init_zeros(cls, quantity_factory: QuantityFactory):
+    def init_zeros(
+        cls,
+        quantity_factory: QuantityFactory,
+        dtype_dict: Optional[Dict[str, type]] = None,
+        allow_mismatch_float_precision=False,
+    ):
         initial_storages = {}
         for _field in fields(cls):
             if "dims" in _field.metadata.keys():
                 initial_storages[_field.name] = quantity_factory.zeros(
                     _field.metadata["dims"],
                     _field.metadata["units"],
-                    dtype=Float,
+                    dtype=dtype_dict[_field.name]
+                    if dtype_dict and _field.name in dtype_dict.keys()
+                    else Float,
+                    allow_mismatch_float_precision=allow_mismatch_float_precision,
                 ).data
         return cls.init_from_storages(
-            storages=initial_storages, sizer=quantity_factory.sizer
+            storages=initial_storages,
+            sizer=quantity_factory.sizer,
+            allow_mismatch_float_precision=allow_mismatch_float_precision,
         )
 
     @classmethod
@@ -355,6 +365,7 @@ class DycoreState:
         sizer: GridSizer,
         bdt: float = 0.0,
         mdt: float = 0.0,
+        allow_mismatch_float_precision=False,
     ):
         inputs = {}
         for _field in fields(cls):
@@ -366,6 +377,7 @@ class DycoreState:
                     _field.metadata["units"],
                     origin=sizer.get_origin(dims),
                     extent=sizer.get_extent(dims),
+                    allow_mismatch_float_precision=allow_mismatch_float_precision,
                 )
                 inputs[_field.name] = quantity
         return cls(**inputs, bdt=bdt, mdt=mdt)
