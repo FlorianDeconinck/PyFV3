@@ -1,16 +1,10 @@
 import math
-from typing import Dict
+from typing import List
 
 import gt4py.cartesian.gtscript as gtscript
 from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval, region
 
-from ndsl import (
-    Quantity,
-    QuantityFactory,
-    StencilFactory,
-    WrappedHaloUpdater,
-    orchestrate,
-)
+from ndsl import QuantityFactory, StencilFactory, WrappedHaloUpdater, orchestrate
 from ndsl.constants import (
     N_HALO_DEFAULT,
     X_DIM,
@@ -194,6 +188,7 @@ class TracerAdvection:
         grid_data,
         comm: Communicator,
         tracers: Tracers,
+        exclude_tracers: List[str],
     ):
         orchestrate(
             obj=self,
@@ -204,6 +199,7 @@ class TracerAdvection:
         self.grid_indexing = grid_indexing  # needed for selective validation
         self._tracer_count = tracers.count
         self.grid_data = grid_data
+        self._exclude_tracers = exclude_tracers
 
         self._x_area_flux = quantity_factory.zeros(
             [X_INTERFACE_DIM, Y_DIM, Z_DIM],
@@ -283,10 +279,18 @@ class TracerAdvection:
             n_halo=N_HALO_DEFAULT,
             dtype=Float,
         )
+
+        # We can exclude tracers from advecting and therefore also
+        # halo exchanging
+        advected_tracers = {}
+        for name, tracer in tracers.items():
+            if name in exclude_tracers:
+                continue
+            advected_tracers[name] = tracer
         self._tracers_halo_updater = WrappedHaloUpdater(
-            comm.get_scalar_halo_updater([tracer_halo_spec] * tracers.count),
-            tracers.as_dict(),
-            [t for t in tracers.names()],
+            comm.get_scalar_halo_updater([tracer_halo_spec] * len(advected_tracers)),
+            advected_tracers,
+            [t for t in advected_tracers.keys()],
         )
 
     def __call__(
@@ -393,7 +397,9 @@ class TracerAdvection:
                 self.grid_data.rarea,
                 dp2,
             )
-            for q in tracers.values():
+            for name, q in tracers.items():
+                if name in self._exclude_tracers:
+                    continue
                 self.finite_volume_transport(
                     q,
                     x_courant,
