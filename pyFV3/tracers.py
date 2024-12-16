@@ -1,8 +1,12 @@
 from __future__ import annotations
+
+from typing import Dict, List
+
+import numpy as np
+
 from ndsl import Quantity, QuantityFactory
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
-from typing import Dict, List
-import numpy as np
+
 
 # FOR REFERENCE - previous descriptive of the tracers, lining up with Pace work
 # tracer_variables = [
@@ -19,18 +23,20 @@ import numpy as np
 
 
 class Tracers:
+    unit = "g/kg"
+    dims = [X_DIM, Y_DIM, Z_DIM]
+
     def __init__(self, factory: QuantityFactory) -> None:
         self._quantities: Dict[str, Quantity] = {}
         self._quantity_factory = factory
-        self._dims = [X_DIM, Y_DIM, Z_DIM]
 
     def copy_tracer_data(
         self,
         name: str,
         data: np.ndarray,
-        units="unknown",
+        unit="unknown",
     ):
-        qty = self._quantity_factory.empty(dims=self._dims, units=units)
+        qty = self._quantity_factory.empty(dims=self.dims, units=unit)
         if data.shape > qty.data.shape:
             raise ValueError(
                 f"[pyFV3] Tracer {name} size ({data.shape}"
@@ -52,8 +58,8 @@ class Tracers:
     def items(self):
         return self._quantities.items()
 
-    def as_fortran_4D(self) -> np.ndarray:
-        shape = self._quantity_factory.sizer.get_shape(self._dims)
+    def as_4D_array(self) -> np.ndarray:
+        shape = self._quantity_factory.sizer.get_shape(self.dims)
         var4d = np.empty(
             (
                 shape[0] - 1,
@@ -62,12 +68,11 @@ class Tracers:
                 self.count,
             )
         )
+        # Skip the extra data point that is meant to align interface
+        # and non interface fields
         for idx, q in enumerate(self.values()):
             var4d[:, :, :, idx] = q.data[:-1, :-1, :-1]
         return var4d
-
-    def as_dict(self) -> Dict[str, Quantity]:
-        return self._quantities
 
     def __getitem__(self, key):
         return self._quantities[key]
@@ -92,12 +97,12 @@ class Tracers:
     ):
         tracers = cls(quantity_factory)
         for name in tracer_mapping:
-            qty = quantity_factory.empty(dims=tracers._dims, units="kg/m^2")
+            qty = quantity_factory.empty(dims=cls.dims, units=cls.unit)
             tracers._quantities[name] = qty
         return tracers
 
     @classmethod
-    def make_from_fortran(
+    def make_from_4D_array(
         cls,
         quantity_factory: QuantityFactory,
         tracer_mapping: List[str],
@@ -116,7 +121,7 @@ class Tracers:
             tracers.copy_tracer_data(
                 name=tracer_mapping[idx] or f"Tracer_{idx}",
                 data=tracer_data[:, :, :, idx],
-                units="kg/m^2",
+                unit=cls.unit,
             )
         return tracers
 
