@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple
 import pytest
 
 import ndsl.dsl.gt4py_utils as utils
-from ndsl import Namelist, Quantity, StencilFactory
+from ndsl import Namelist, Quantity, QuantityFactory, StencilFactory
 from ndsl.constants import (
     X_DIM,
     X_INTERFACE_DIM,
@@ -31,6 +31,31 @@ class TranslateDycoreFortranData2Py(TranslateFortranData2Py):
     ):
         super().__init__(grid, stencil_factory)
         self.namelist = DynamicalCoreConfig.from_namelist(namelist)
+
+
+TRACERS_IN_PYFV3 = [
+    "vapor",
+    "liquid",
+    "ice",
+    "rain",
+    "snow",
+    "graupel",
+    "o3mr",
+    "sgs_tke",
+    "cloud",
+]
+
+TRACERS_IN_FORTRAN = [
+    "qvapor",
+    "qliquid",
+    "qice",
+    "qrain",
+    "qsnow",
+    "qgraupel",
+    "qo3mr",
+    "qsgs_tke",
+    "qcld",
+]
 
 
 class TranslateFVDynamics(ParallelTranslateBaseSlicing):
@@ -290,25 +315,50 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
         self.max_error = 1e-5
 
         self.ignore_near_zero_errors = {}
-        for qvar in utils.tracer_variables:
-            self.ignore_near_zero_errors[qvar] = True
+        self.ignore_near_zero_errors["qvapor"] = True
+        self.ignore_near_zero_errors["qliquid"] = True
+        self.ignore_near_zero_errors["qice"] = True
+        self.ignore_near_zero_errors["qrain"] = True
+        self.ignore_near_zero_errors["qsnow"] = True
+        self.ignore_near_zero_errors["qgraupel"] = True
+        self.ignore_near_zero_errors["qo3mr"] = True
+        self.ignore_near_zero_errors["qsgs_tke"] = True
+        self.ignore_near_zero_errors["qcld"] = True
         self.ignore_near_zero_errors["q_con"] = True
         self.dycore: Optional[fv_dynamics.DynamicalCore] = None
         self.stencil_factory = stencil_factory
+        self._quantity_factory = QuantityFactory.from_backend(
+            sizer=stencil_factory.grid_indexing._sizer,
+            backend=stencil_factory.backend,
+        )
         self.namelist: DynamicalCoreConfig = DynamicalCoreConfig.from_namelist(namelist)
 
     def state_from_inputs(self, inputs):
         input_storages = super().state_from_inputs(inputs)
+        # extract tracers
+        input_storages["vapor"] = input_storages.pop("qvapor")
+        input_storages["liquid"] = input_storages.pop("qliquid")
+        input_storages["ice"] = input_storages.pop("qice")
+        input_storages["rain"] = input_storages.pop("qrain")
+        input_storages["snow"] = input_storages.pop("qsnow")
+        input_storages["graupel"] = input_storages.pop("qgraupel")
+        input_storages["o3mr"] = input_storages.pop("qo3mr")
+        input_storages["sgs_tke"] = input_storages.pop("qsgs_tke")
+        input_storages["cloud"] = input_storages.pop("qcld")
         # making sure we init DycoreState with the exact set of variables
         accepted_keys = [_field.name for _field in fields(DycoreState)]
+        accepted_keys += TRACERS_IN_PYFV3
         todelete = []
         for name in input_storages.keys():
             if name not in accepted_keys:
                 todelete.append(name)
         for name in todelete:
             del input_storages[name]
-
-        state = DycoreState.init_from_storages(input_storages, sizer=self.grid.sizer)
+        state = DycoreState.init_from_storages(
+            storages=input_storages,
+            quantity_factory=self._quantity_factory,
+            tracer_list=TRACERS_IN_PYFV3,
+        )
         return state
 
     def prepare_data(self, inputs) -> Tuple[DycoreState, GridData]:
@@ -340,6 +390,7 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             config=DynamicalCoreConfig.from_namelist(self.namelist),
             phis=state.phis,
             state=state,
+            exclude_tracers=["cloud"],
             timestep=timedelta(seconds=inputs["bdt"]),
         )
         self.dycore.step_dynamics(state, NullTimer())
@@ -352,7 +403,10 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
         outputs = {}
         storages = {}
         for name, properties in self.outputs.items():
-            if isinstance(state[name], Quantity):
+            if name in TRACERS_IN_FORTRAN:
+                idx = TRACERS_IN_FORTRAN.index(name)
+                storages[name] = state["tracers"][TRACERS_IN_PYFV3[idx]].data
+            elif isinstance(state[name], Quantity):
                 storages[name] = state[name].data
             elif len(self.outputs[name]["dims"]) > 0:
                 storages[name] = state[name]  # assume it's a storage

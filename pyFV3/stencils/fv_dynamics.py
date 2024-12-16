@@ -1,10 +1,9 @@
 from datetime import timedelta
-from typing import Mapping, Optional
+from typing import List, Mapping, Optional
 
 from dace.frontend.python.interface import nounroll as dace_no_unroll
 from gt4py.cartesian.gtscript import PARALLEL, computation, interval
 
-import ndsl.dsl.gt4py_utils as utils
 import pyFV3.stencils.moist_cv as moist_cv
 from ndsl import Quantity, QuantityFactory, StencilFactory, WrappedHaloUpdater
 from ndsl.checkpointer import NullCheckpointer
@@ -98,6 +97,7 @@ class DynamicalCore:
         config: DynamicalCoreConfig,
         phis: Quantity,
         state: DycoreState,
+        exclude_tracers: List[str],
         timestep: timedelta,
         checkpointer: Optional[Checkpointer] = None,
     ):
@@ -111,6 +111,8 @@ class DynamicalCore:
                 the namelist in the Fortran model
             phis: surface geopotential height
             state: model state
+            exclude_tracer: List of named tracer to be excluded from the Advection,
+                and Remapping schemes
             timestep: model timestep
             checkpointer: if given, used to perform operations on model data
                 at specific points in model execution, such as testing against
@@ -198,6 +200,28 @@ class DynamicalCore:
                 f" nwat=={config.nwat} is not implemented."
                 " Only nwat=6 has been implemented."
             )
+
+        # Implemented dynamics options require those tracers to be present at minima
+        # this is a more granular list than carried by the `nwat` single integer
+        # but cover the same topic
+        required_tracers = [
+            "vapor",
+            "liquid",
+            "rain",
+            "snow",
+            "ice",
+            "graupel",
+            "cloud",
+        ]
+        if not all(n in state.tracers.names() for n in required_tracers):
+            raise NotImplementedError(
+                "Dynamical core (fv_dynamics):"
+                " missing required tracers. Dynamics requires:\n"
+                f" {required_tracers}\n"
+                "but only the following where given:\n"
+                f" {state.tracers.names()}"
+            )
+
         self.comm_rank = comm.rank
         self.grid_data = grid_data
         self.grid_indexing = grid_indexing
@@ -213,10 +237,6 @@ class DynamicalCore:
             hord=config.hord_tr,
         )
 
-        self.tracers = {}
-        for name in utils.tracer_variables[0:NQ]:
-            self.tracers[name] = state.__dict__[name]
-
         temporaries = fvdyn_temporaries(quantity_factory)
         self._te_2d = temporaries["te_2d"]
         self._te0_2d = temporaries["te0_2d"]
@@ -231,7 +251,8 @@ class DynamicalCore:
             tracer_transport,
             self.grid_data,
             comm,
-            self.tracers,
+            state.tracers,
+            exclude_tracers=exclude_tracers,
         )
         self._ak = grid_data.ak
         self._bk = grid_data.bk
@@ -312,9 +333,9 @@ class DynamicalCore:
             quantity_factory=quantity_factory,
             config=config.remapping,
             area_64=grid_data.area_64,
-            nq=NQ,
             pfull=self._pfull,
-            tracers=self.tracers,
+            tracers=state.tracers,
+            exclude_tracers=exclude_tracers,
             checkpointer=checkpointer,
         )
 
@@ -352,7 +373,7 @@ class DynamicalCore:
                 va=state.va,
                 uc=state.uc,
                 vc=state.vc,
-                qvapor=state.qvapor,
+                qvapor=state.tracers["vapor"],
             )
 
     def _checkpoint_remapping_in(
@@ -462,12 +483,12 @@ class DynamicalCore:
             log_on_rank_0("FV Setup")
 
         self._fv_setup_stencil(
-            state.qvapor,
-            state.qliquid,
-            state.qrain,
-            state.qsnow,
-            state.qice,
-            state.qgraupel,
+            state.tracers["vapor"],
+            state.tracers["liquid"],
+            state.tracers["rain"],
+            state.tracers["snow"],
+            state.tracers["ice"],
+            state.tracers["graupel"],
             state.q_con,
             self._cvm,
             state.pkz,
@@ -536,7 +557,7 @@ class DynamicalCore:
                 with timer.clock("TracerAdvection"):
                     self._checkpoint_tracer_advection_in(state)
                     self.tracer_advection(
-                        self.tracers,
+                        state.tracers,
                         self._dp_initial,
                         state.mfxd,
                         state.mfyd,
@@ -573,7 +594,7 @@ class DynamicalCore:
                     #       time
                     #       When NQ=8, we do need qcld passed explicitely
                     self._lagrangian_to_eulerian_obj(
-                        self.tracers,
+                        state.tracers,
                         state.pt,
                         state.delp,
                         state.delz,
@@ -583,7 +604,6 @@ class DynamicalCore:
                         state.w,
                         self._cappa,
                         state.q_con,
-                        state.qcld,
                         state.pkz,
                         state.pk,
                         state.pe,
@@ -625,13 +645,13 @@ class DynamicalCore:
         if __debug__:
             log_on_rank_0("Neg Adj 3")
         self._adjust_tracer_mixing_ratio(
-            state.qvapor,
-            state.qliquid,
-            state.qrain,
-            state.qsnow,
-            state.qice,
-            state.qgraupel,
-            state.qcld,
+            state.tracers["vapor"],
+            state.tracers["liquid"],
+            state.tracers["rain"],
+            state.tracers["snow"],
+            state.tracers["ice"],
+            state.tracers["graupel"],
+            state.tracers["cloud"],
             state.pt,
             state.delp,
         )

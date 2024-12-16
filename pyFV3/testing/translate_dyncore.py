@@ -140,7 +140,10 @@ class TranslateDynCore(ParallelTranslate2PyState):
             grid_data.bk = inputs["bk"]
             grid_data.ptop = inputs["ptop"]
         self._base.make_storage_data_input_vars(inputs)
-        state = DycoreState.init_zeros(quantity_factory=self.grid.quantity_factory)
+        state = DycoreState.init_zeros(
+            quantity_factory=self.grid.quantity_factory,
+            tracer_list=[],  # No tracers used in acoustics
+        )
         wsd: Quantity = self.grid.quantity_factory.zeros(
             dims=[X_DIM, Y_DIM],
             units="unknown",
