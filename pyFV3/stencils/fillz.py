@@ -1,4 +1,4 @@
-import typing
+from typing import List, no_type_check
 
 from gt4py.cartesian.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
 
@@ -8,7 +8,7 @@ from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, IntFieldIJ
 from pyFV3.tracers import Tracers
 
 
-@typing.no_type_check
+@no_type_check
 def fix_tracer(
     q: FloatField,
     dp: FloatField,
@@ -116,6 +116,7 @@ class FillNegativeTracerValues:
         self,
         stencil_factory: StencilFactory,
         quantity_factory: QuantityFactory,
+        exclude_tracers: List[str],
     ):
         orchestrate(
             obj=self,
@@ -126,6 +127,7 @@ class FillNegativeTracerValues:
             fix_tracer,
             compute_dims=[X_DIM, Y_DIM, Z_DIM],
         )
+        self._exclude_tracers = exclude_tracers
 
         # Setting initial value of upper_fix to zero is only needed for validation.
         # The values in the compute domain are set to zero in the stencil.
@@ -151,7 +153,9 @@ class FillNegativeTracerValues:
             dp2 (in): pressure thickness of atmospheric layer
             tracers (inout): tracers to fix negative masses in
         """
-        for tracer in tracers.values():
+        for name, tracer in tracers.items():
+            if name in self._exclude_tracers:
+                continue
             self._fix_tracer_stencil(
                 tracer,
                 dp2,

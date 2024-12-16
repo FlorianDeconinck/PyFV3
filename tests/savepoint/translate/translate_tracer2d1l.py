@@ -1,12 +1,11 @@
 import pytest
 
-import ndsl.dsl.gt4py_utils as utils
-from ndsl import Namelist, StencilFactory, QuantityFactory
+from ndsl import Namelist, QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
 from ndsl.stencils.testing import ParallelTranslate
 from pyFV3.stencils import FiniteVolumeTransport, TracerAdvection
-from pyFV3.utils.functional_validation import get_subset_func
 from pyFV3.tracers import Tracers
+from pyFV3.utils.functional_validation import get_subset_func
 
 
 class TranslateTracer2D1L(ParallelTranslate):
@@ -51,7 +50,7 @@ class TranslateTracer2D1L(ParallelTranslate):
         return input_data
 
     def compute_parallel(self, inputs, communicator):
-        tracers = Tracers.make_from_fortran(
+        tracers = Tracers.make_from_4D_array(
             quantity_factory=self._quantity_factory,
             tracer_mapping=[
                 "vapor",
@@ -60,14 +59,15 @@ class TranslateTracer2D1L(ParallelTranslate):
                 "ice",
                 "snow",
                 "graupel",
-                "qo3mr",
-                "qsgs_tke",
+                "o3mr",
+                "sgs_tke",
+                "cloud",
             ],
             tracer_data=inputs["tracers"],
         )
         self._base.make_storage_data_input_vars(inputs, dict_4d=False)
+        inputs.pop("tracers")
         inputs.pop("nq")  # Fortran NQ is intrinsic to Tracers (e.g Tracers.count)
-        all_tracers = inputs.pop("tracers")
         transport = FiniteVolumeTransport(
             stencil_factory=self.stencil_factory,
             quantity_factory=self.grid.quantity_factory,
@@ -84,6 +84,7 @@ class TranslateTracer2D1L(ParallelTranslate):
             self.grid.grid_data,
             communicator,
             tracers,
+            exclude_tracers=["cloud"],
         )
         inputs["x_mass_flux"] = inputs.pop("mfxd")
         inputs["y_mass_flux"] = inputs.pop("mfyd")
@@ -97,27 +98,10 @@ class TranslateTracer2D1L(ParallelTranslate):
         # Put back un-advected tracers
         # Tracers have -1 on all cartesian because of NDSL padding
         # Dev note: qcld is not advected in Pace dataset for some reason
-        tracers_as_4d = tracers.as_fortran_4D()
-        for idx in range(0, tracers_as_4d.shape[3]):
-            all_tracers[:-1, :-1, :-1, idx] = tracers_as_4d[:, :, :, idx]
-        inputs["tracers"] = all_tracers
-        # need to convert tracers dict to [x, y, z, n_tracer] array before subsetting
+        inputs["tracers"] = tracers.as_4D_array()
         outputs = self._base.slice_output(inputs)
         outputs["tracers"] = self.subset_output("tracers", outputs["tracers"])
         return outputs
-
-    def get_advected_tracer_dict(self, all_tracers, nq):
-        all_tracers = {**all_tracers}  # make a new dict so we don't modify the input
-        properties = self.inputs["tracers"]
-        for name in utils.tracer_variables:
-            self.grid.quantity_dict_update(
-                all_tracers,
-                name,
-                dims=properties["dims"],
-                units=properties["units"],
-            )
-        tracer_names = utils.tracer_variables[:nq]
-        return {name: all_tracers[name + "_quantity"] for name in tracer_names}
 
     def compute_sequential(self, a, b):
         pytest.skip(

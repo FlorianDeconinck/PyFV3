@@ -1,12 +1,12 @@
-from typing import Dict
+from typing import List
 
-import ndsl.dsl.gt4py_utils as utils
-from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
+from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
 from ndsl.dsl.typing import Float, FloatField
 from pyFV3.stencils.fillz import FillNegativeTracerValues
 from pyFV3.stencils.map_single import MapSingle
 from pyFV3.tracers import Tracers
+import dace
 
 
 class MapNTracer:
@@ -21,12 +21,14 @@ class MapNTracer:
         kord: int,
         fill: bool,
         tracers: Tracers,
+        exclude_tracers: List[str],
     ):
         orchestrate(
             obj=self,
             config=stencil_factory.config.dace_config,
             dace_compiletime_args=["tracers"],
         )
+        self._exclude_tracers = exclude_tracers
         self._qs = quantity_factory.zeros(
             [X_DIM, Y_DIM, Z_DIM],
             units="unknown",
@@ -52,6 +54,7 @@ class MapNTracer:
             self._fillz = FillNegativeTracerValues(
                 stencil_factory,
                 quantity_factory,
+                exclude_tracers=self._exclude_tracers,
             )
         else:
             self._fill_negative_tracers = False
@@ -74,8 +77,10 @@ class MapNTracer:
             dp2 (in): Difference in pressure between Eulerian levels
             tracers (inout): tracers to be remapped
         """
-        for name, tracer in tracers.items():
-            self._map_single[name](tracer, pe1, pe2, self._qs)
+        for name in tracers.names():
+            if name in self._exclude_tracers:
+                continue
+            self._map_single[name](tracers[name], pe1, pe2, self._qs)
 
         if self._fill_negative_tracers is True:
             self._fillz(dp2, tracers)

@@ -1,5 +1,5 @@
 import ndsl.dsl.gt4py_utils as utils
-from ndsl import Namelist, StencilFactory, QuantityFactory
+from ndsl import Namelist, QuantityFactory, StencilFactory
 from ndsl.constants import Z_DIM
 from pyFV3 import DynamicalCoreConfig
 from pyFV3.stencils import LagrangianToEulerian
@@ -109,7 +109,7 @@ class TranslateRemapping(TranslateDycoreFortranData2Py):
         )
         wsd_2d[:, :] = inputs["wsd"][:, :, 0]
         inputs["wsd"] = wsd_2d
-        tracers = Tracers.make_from_fortran(
+        tracers = Tracers.make_from_4D_array(
             quantity_factory=self._quantity_factory,
             tracer_mapping=[
                 "vapor",
@@ -136,7 +136,8 @@ class TranslateRemapping(TranslateDycoreFortranData2Py):
             area_64=self.grid.area_64,
             pfull=pfull,
             tracers=inputs["tracers"],
+            exclude_tracers=["cloud"],
         )
         l_to_e_obj(**inputs)
-        inputs["tracers"] = tracers.as_fortran_4D()
+        inputs["tracers"] = tracers.as_4D_array()
         return inputs

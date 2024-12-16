@@ -1,12 +1,13 @@
+from typing import List
+
 import numpy as np
 
-from ndsl import Namelist, StencilFactory, QuantityFactory
+from ndsl import Namelist, QuantityFactory, StencilFactory
 from ndsl.stencils.testing import pad_field_in_j
 from ndsl.utils import safe_assign_array
 from pyFV3.stencils.fillz import FillNegativeTracerValues
 from pyFV3.testing import TranslateDycoreFortranData2Py
 from pyFV3.tracers import Tracers
-from typing import List
 
 
 class TranslateFillz(TranslateDycoreFortranData2Py):
@@ -62,8 +63,8 @@ class TranslateFillz(TranslateDycoreFortranData2Py):
             "ice",
             "snow",
             "graupel",
-            "qo3mr",
-            "qsgs_tke",
+            "o3mr",
+            "sgs_tke",
         ]
         tracers = Tracers.make(
             quantity_factory=self._quantity_factory,
@@ -90,6 +91,7 @@ class TranslateFillz(TranslateDycoreFortranData2Py):
         fillz = FillNegativeTracerValues(
             self.stencil_factory,
             self.grid.quantity_factory,
+            exclude_tracers=[],
         )
         fillz(**inputs)
         ds = self.grid.default_domain_dict()
