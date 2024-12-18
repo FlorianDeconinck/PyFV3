@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import List, Optional
 
 from gt4py.cartesian.gtscript import (
     __INLINED,
@@ -13,7 +13,7 @@ from gt4py.cartesian.gtscript import (
     region,
 )
 
-from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
+from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import (
     X_DIM,
     X_INTERFACE_DIM,
@@ -295,6 +295,7 @@ class LagrangianToEulerian:
         area_64,
         pfull,
         tracers: Tracers,
+        exclude_tracers: List[str],
         checkpointer: Optional[Checkpointer] = None,
     ):
         orchestrate(
@@ -411,6 +412,7 @@ class LagrangianToEulerian:
             abs(config.kord_tr),
             fill=config.fill,
             tracers=tracers,
+            exclude_tracers=exclude_tracers,
         )
 
         self._map_single_w = MapSingle(
