@@ -399,26 +399,27 @@ class TracerAdvection:
             )
             for name, q in tracers.items():
                 if name in self._exclude_tracers:
-                    continue
-                self.finite_volume_transport(
-                    q,
-                    x_courant,
-                    y_courant,
-                    self._x_area_flux,
-                    self._y_area_flux,
-                    self._x_flux,
-                    self._y_flux,
-                    x_mass_flux=x_mass_flux,
-                    y_mass_flux=y_mass_flux,
-                )
-                self._apply_tracer_flux(
-                    q,
-                    dp1,
-                    self._x_flux,
-                    self._y_flux,
-                    self.grid_data.rarea,
-                    dp2,
-                )
+                    pass
+                else:
+                    self.finite_volume_transport(
+                        q,
+                        x_courant,
+                        y_courant,
+                        self._x_area_flux,
+                        self._y_area_flux,
+                        self._x_flux,
+                        self._y_flux,
+                        x_mass_flux=x_mass_flux,
+                        y_mass_flux=y_mass_flux,
+                    )
+                    self._apply_tracer_flux(
+                        q,
+                        dp1,
+                        self._x_flux,
+                        self._y_flux,
+                        self.grid_data.rarea,
+                        dp2,
+                    )
             if not last_call:
                 self._tracers_halo_updater.update()
                 # we can't use variable assignment to avoid a data copy

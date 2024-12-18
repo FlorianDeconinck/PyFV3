@@ -154,12 +154,11 @@ class FillNegativeTracerValues:
             tracers (inout): tracers to fix negative masses in
         """
         for name, tracer in tracers.items():
-            if name in self._exclude_tracers:
-                continue
-            self._fix_tracer_stencil(
-                tracer,
-                dp2,
-                self._zfix,
-                self._sum0,
-                self._sum1,
-            )
+            if name not in self._exclude_tracers:
+                self._fix_tracer_stencil(
+                    tracer,
+                    dp2,
+                    self._zfix,
+                    self._sum0,
+                    self._sum1,
+                )

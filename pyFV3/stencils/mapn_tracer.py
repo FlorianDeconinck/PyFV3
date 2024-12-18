@@ -79,9 +79,8 @@ class MapNTracer:
             tracers (inout): tracers to be remapped
         """
         for name in tracers.names():
-            if name in self._exclude_tracers:
-                continue
-            self._map_single[name](tracers[name], pe1, pe2, self._qs)
+            if name not in self._exclude_tracers:
+                self._map_single[name](tracers[name], pe1, pe2, self._qs)
 
         if self._fill_negative_tracers is True:
             self._fillz(dp2, tracers)
