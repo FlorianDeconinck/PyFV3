@@ -1,15 +1,14 @@
-import typing
-from typing import Dict
+from typing import List, no_type_check
 
 from gt4py.cartesian.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
 
-import ndsl.dsl.gt4py_utils as utils
-from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
+from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, IntFieldIJ
+from pyFV3.tracers import Tracers
 
 
-@typing.no_type_check
+@no_type_check
 def fix_tracer(
     q: FloatField,
     dp: FloatField,
@@ -117,19 +116,18 @@ class FillNegativeTracerValues:
         self,
         stencil_factory: StencilFactory,
         quantity_factory: QuantityFactory,
-        nq: int,
-        tracers: Dict[str, Quantity],
+        exclude_tracers: List[str],
     ):
         orchestrate(
             obj=self,
             config=stencil_factory.config.dace_config,
             dace_compiletime_args=["tracers"],
         )
-        self._nq = int(nq)
         self._fix_tracer_stencil = stencil_factory.from_dims_halo(
             fix_tracer,
             compute_dims=[X_DIM, Y_DIM, Z_DIM],
         )
+        self._exclude_tracers = exclude_tracers
 
         # Setting initial value of upper_fix to zero is only needed for validation.
         # The values in the compute domain are set to zero in the stencil.
@@ -145,25 +143,22 @@ class FillNegativeTracerValues:
             dtype=Float,
         )
 
-        self._filtered_tracer_dict = {
-            name: tracers[name] for name in utils.tracer_variables[0 : self._nq]
-        }
-
     def __call__(
         self,
         dp2: FloatField,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
     ):
         """
         Args:
             dp2 (in): pressure thickness of atmospheric layer
             tracers (inout): tracers to fix negative masses in
         """
-        for tracer_name in self._filtered_tracer_dict.keys():
-            self._fix_tracer_stencil(
-                tracers[tracer_name],
-                dp2,
-                self._zfix,
-                self._sum0,
-                self._sum1,
-            )
+        for name, tracer in tracers.items():
+            if name not in self._exclude_tracers:
+                self._fix_tracer_stencil(
+                    tracer,
+                    dp2,
+                    self._zfix,
+                    self._sum0,
+                    self._sum1,
+                )

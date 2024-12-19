@@ -1,9 +1,10 @@
 import ndsl.dsl.gt4py_utils as utils
-from ndsl import Namelist, StencilFactory
+from ndsl import Namelist, QuantityFactory, StencilFactory
 from ndsl.constants import Z_DIM
 from pyFV3 import DynamicalCoreConfig
 from pyFV3.stencils import LagrangianToEulerian
 from pyFV3.testing import TranslateDycoreFortranData2Py
+from pyFV3.tracers import Tracers
 
 
 class TranslateRemapping(TranslateDycoreFortranData2Py):
@@ -97,6 +98,10 @@ class TranslateRemapping(TranslateDycoreFortranData2Py):
         self.ignore_near_zero_errors = {"q_con": True, "tracers": True}
         self.stencil_factory = stencil_factory
         self.namelist = DynamicalCoreConfig.from_namelist(namelist)
+        self._quantity_factory = QuantityFactory.from_backend(
+            sizer=stencil_factory.grid_indexing._sizer,
+            backend=stencil_factory.backend,
+        )
 
     def compute_from_storage(self, inputs):
         wsd_2d = utils.make_storage_from_shape(
@@ -104,19 +109,35 @@ class TranslateRemapping(TranslateDycoreFortranData2Py):
         )
         wsd_2d[:, :] = inputs["wsd"][:, :, 0]
         inputs["wsd"] = wsd_2d
-        inputs["q_cld"] = inputs["tracers"]["qcld"]
+        tracers = Tracers.make_from_4D_array(
+            quantity_factory=self._quantity_factory,
+            tracer_mapping=[
+                "vapor",
+                "liquid",
+                "rain",
+                "ice",
+                "snow",
+                "graupel",
+                "qo3mr",
+                "qsgs_tke",
+                "cloud",
+            ],
+            tracer_data=inputs["tracers"],
+        )
         inputs["last_step"] = bool(inputs["last_step"])
         pfull = self.grid.quantity_factory.zeros([Z_DIM], units="Pa")
         pfull.data[:] = pfull.np.asarray(inputs.pop("pfull"))
+        inputs.pop("nq")
+        inputs["tracers"] = tracers
         l_to_e_obj = LagrangianToEulerian(
             self.stencil_factory,
             quantity_factory=self.grid.quantity_factory,
             config=DynamicalCoreConfig.from_namelist(self.namelist).remapping,
             area_64=self.grid.area_64,
-            nq=inputs.pop("nq"),
             pfull=pfull,
             tracers=inputs["tracers"],
+            exclude_tracers=["cloud"],
         )
         l_to_e_obj(**inputs)
-        inputs.pop("q_cld")
+        inputs["tracers"] = tracers.as_4D_array()
         return inputs

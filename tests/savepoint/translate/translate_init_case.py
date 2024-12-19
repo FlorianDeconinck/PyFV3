@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 import ndsl.constants as constants
-import ndsl.dsl.gt4py_utils as utils
 import pyFV3.initialization.analytic_init as analytic_init
 import pyFV3.initialization.init_utils as init_utils
 import pyFV3.initialization.test_cases.initialize_baroclinic as baroclinic_init
@@ -20,7 +19,6 @@ from ndsl.constants import (
 )
 from ndsl.grid import GridData, MetricTerms
 from ndsl.stencils.testing import ParallelTranslateBaseSlicing
-from ndsl.stencils.testing.grid import TRACER_DIM  # type: ignore
 from pyFV3.testing import TranslateDycoreFortranData2Py
 
 
@@ -112,7 +110,7 @@ class TranslateInitCase(ParallelTranslateBaseSlicing):
         },
         "q4d": {
             "name": "tracers",
-            "dims": [X_DIM, Y_DIM, Z_DIM, TRACER_DIM],
+            "dims": [X_DIM, Y_DIM, Z_DIM, "tracers"],
             "units": "kg/kg",
         },
     }
@@ -166,6 +164,10 @@ class TranslateInitCase(ParallelTranslateBaseSlicing):
             self.ignore_near_zero_errors[var] = {"near_zero": 2e-13}
         self.namelist = namelist  # type: ignore
         self.stencil_factory = stencil_factory
+        self._quantity_factory = QuantityFactory.from_backend(
+            sizer=stencil_factory.grid_indexing._sizer,
+            backend=stencil_factory.backend,
+        )
 
     def compute_sequential(self, *args, **kwargs):
         pytest.skip(
@@ -177,10 +179,8 @@ class TranslateInitCase(ParallelTranslateBaseSlicing):
         outputs = {}
         arrays = {}
         for name, properties in self.outputs.items():
-            if isinstance(state[name], dict):
-                for tracer, quantity in state[name].items():
-                    state[name][tracer] = state[name][tracer].data
-                arrays[name] = state[name]
+            if name == "q4d":
+                arrays[name] = state["tracers"].as_4D_array()
             elif len(self.outputs[name]["dims"]) > 0:
                 arrays[name] = state[name].data
             else:
@@ -229,7 +229,6 @@ class TranslateInitCase(ParallelTranslateBaseSlicing):
         )
 
         grid_data = GridData.new_from_metric_terms(metric_terms)
-        quantity_factory = QuantityFactory()
 
         state = analytic_init.init_analytic_state(
             analytic_init_case="baroclinic",
@@ -241,9 +240,6 @@ class TranslateInitCase(ParallelTranslateBaseSlicing):
             comm=communicator,
         )
 
-        state.q4d = {}
-        for tracer in utils.tracer_variables:
-            state.q4d[tracer] = getattr(state, tracer)
         return self.outputs_from_state(state.__dict__)
 
 
