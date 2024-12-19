@@ -27,6 +27,7 @@ Branches:
 - ✅ `fix/F32/UpdateDzC`@Florian: Fix for fluxes gradient
 - ✅ `fix/F32/DivergenceDamping`@Florian: Fix for 32-bit scalars in DivergenceDamping
 - ✅ `fix/F32/UpdateDzD`@Florian: Fix for fluxes gradient & python computation
+- ✅ `fix/F32/nh_p_grad` @ Florian: Fix for 32-bit NonHydrostaticPressureGradient
 - 🔶 `fix/RayleighDamping_mixed_precision`@Florian: fix the Ray_Fast test
 - 🔶 `GEOS_update/yppm_xppm`@Florian: fix the YPPM/XPPM with `hord = -6`
 - 🔶 `fix/DelnFlux_f32_support`@Florian: Fix for f32 support for DelnFlux (partial pass)
