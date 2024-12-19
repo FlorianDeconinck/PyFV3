@@ -561,7 +561,6 @@ def init_tc_state(
     numpy_state.pkz[:] = pkz
     numpy_state.ps[:] = pe[:, :, -1]
     numpy_state.pt[:] = pt
-    numpy_state.qvapor[:] = qvapor
     numpy_state.u[:] = ud
     numpy_state.ua[:] = ua
     numpy_state.v[:] = vd
@@ -569,8 +568,10 @@ def init_tc_state(
     numpy_state.w[:] = w
     state = DycoreState.init_from_numpy_arrays(
         numpy_state.__dict__,
-        sizer=quantity_factory.sizer,
+        quantity_factory=quantity_factory,
         backend=sample_quantity.metadata.gt4py_backend,
+        tracer_list=["vapor", "liquid", "rain", "snow", "ice", "graupel", "cloud"],
     )
+    state.tracers["vapor"].view[:] = qvapor
 
     return state
