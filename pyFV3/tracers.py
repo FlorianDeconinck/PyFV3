@@ -124,9 +124,3 @@ class Tracers:
                 unit=cls.unit,
             )
         return tracers
-
-    @staticmethod
-    def make_mapping(tracer_data: np.ndarray):
-        if len(tracer_data.shape) != 4:
-            raise ValueError("Expected 4D field as input")
-        return tracer_data.shape[3] * [None]
