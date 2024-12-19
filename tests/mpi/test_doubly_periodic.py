@@ -128,6 +128,7 @@ def setup_dycore() -> Tuple[DynamicalCore, List[Any]]:
         config=config,
         phis=state.phis,
         state=state,
+        exclude_tracers=[],
         timestep=timedelta(seconds=255),
     )
     # TODO compute from namelist
