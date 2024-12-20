@@ -1,11 +1,13 @@
+from typing import List
+
 import numpy as np
 
-import ndsl.dsl.gt4py_utils as utils
-from ndsl import Namelist, StencilFactory
+from ndsl import Namelist, QuantityFactory, StencilFactory
 from ndsl.stencils.testing import pad_field_in_j
 from ndsl.utils import safe_assign_array
-from pyFV3.stencils import fillz
+from pyFV3.stencils.fillz import FillNegativeTracerValues
 from pyFV3.testing import TranslateDycoreFortranData2Py
+from pyFV3.tracers import Tracers
 
 
 class TranslateFillz(TranslateDycoreFortranData2Py):
@@ -33,18 +35,20 @@ class TranslateFillz(TranslateDycoreFortranData2Py):
         self.max_error = 1e-13
         self.ignore_near_zero_errors = {"q2tracers": True}
         self.stencil_factory = stencil_factory
+        self._quantity_factory = QuantityFactory.from_backend(
+            sizer=stencil_factory.grid_indexing._sizer,
+            backend=stencil_factory.backend,
+        )
 
-    def make_storage_data_input_vars(self, inputs, storage_vars=None):
-        if storage_vars is None:
-            storage_vars = self.storage_vars()
+    def make_storage_data_input_vars(self, inputs, tracer_mapping: List[str]):
+        storage_vars = self.storage_vars()
         info = storage_vars["dp2"]
         inputs["dp2"] = self.make_storage_data(
             np.squeeze(inputs["dp2"]), istart=info["istart"], axis=info["axis"]
         )
-        inputs["tracers"] = {}
         info = storage_vars["q2tracers"]
         for i in range(int(inputs["nq"])):
-            inputs["tracers"][utils.tracer_variables[i]] = self.make_storage_data(
+            inputs["tracers"][tracer_mapping[i]] = self.make_storage_data(
                 np.squeeze(inputs["q2tracers"][:, :, i]),
                 istart=info["istart"],
                 axis=info["axis"],
@@ -52,7 +56,23 @@ class TranslateFillz(TranslateDycoreFortranData2Py):
         del inputs["q2tracers"]
 
     def compute(self, inputs):
-        self.make_storage_data_input_vars(inputs)
+        tracer_mapping = [
+            "vapor",
+            "liquid",
+            "rain",
+            "ice",
+            "snow",
+            "graupel",
+            "o3mr",
+            "sgs_tke",
+        ]
+        tracers = Tracers.make(
+            quantity_factory=self._quantity_factory,
+            tracer_mapping=tracer_mapping,
+        )
+        inputs["tracers"] = tracers
+
+        self.make_storage_data_input_vars(inputs, tracer_mapping=tracer_mapping)
         for name, value in tuple(inputs.items()):
             if hasattr(value, "shape") and len(value.shape) > 1 and value.shape[1] == 1:
                 inputs[name] = self.make_storage_data(
@@ -67,18 +87,18 @@ class TranslateFillz(TranslateDycoreFortranData2Py):
                         value, self.grid.njd, backend=self.stencil_factory.backend
                     )
                 )
-        run_fillz = fillz.FillNegativeTracerValues(
+        inputs.pop("nq")
+        fillz = FillNegativeTracerValues(
             self.stencil_factory,
             self.grid.quantity_factory,
-            inputs.pop("nq"),
-            inputs["tracers"],
+            exclude_tracers=[],
         )
-        run_fillz(**inputs)
+        fillz(**inputs)
         ds = self.grid.default_domain_dict()
         ds.update(self.out_vars["q2tracers"])
-        tracers = np.zeros((self.grid.nic, self.grid.npz, len(inputs["tracers"])))
+        tracers = np.zeros((self.grid.nic, self.grid.npz, inputs["tracers"].count))
         for varname, data in inputs["tracers"].items():
-            index = utils.tracer_variables.index(varname)
+            index = tracer_mapping.index(varname)
             data[self.grid.slice_dict(ds)]
             safe_assign_array(
                 tracers[:, :, index], np.squeeze(data[self.grid.slice_dict(ds)])

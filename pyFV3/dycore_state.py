@@ -1,10 +1,10 @@
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Dict, List, Mapping, Union
 
 import xarray as xr
 
 import ndsl.dsl.gt4py_utils as gt_utils
-from ndsl import GridSizer, Quantity, QuantityFactory
+from ndsl import Quantity, QuantityFactory
 from ndsl.constants import (
     X_DIM,
     X_INTERFACE_DIM,
@@ -16,6 +16,65 @@ from ndsl.constants import (
 from ndsl.dsl.typing import Float
 from ndsl.restart._legacy_restart import open_restart
 from ndsl.typing import Communicator
+from pyFV3.tracers import Tracers
+
+
+DEFAULT_TRACER_PROPERTIES = {
+    "specific_humidity": {
+        "pyFV3_key": "vapor",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "sphum",
+        "units": "g/kg",
+    },
+    "cloud_liquid_water_mixing_ratio": {
+        "pyFV3_key": "liquid",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "liq_wat",
+        "units": "g/kg",
+    },
+    "cloud_ice_mixing_ratio": {
+        "pyFV3_key": "ice",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "ice_wat",
+        "units": "g/kg",
+    },
+    "rain_mixing_ratio": {
+        "pyFV3_key": "rain",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "rainwat",
+        "units": "g/kg",
+    },
+    "snow_mixing_ratio": {
+        "pyFV3_key": "snow",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "snowwat",
+        "units": "g/kg",
+    },
+    "graupel_mixing_ratio": {
+        "pyFV3_key": "graupel",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "graupel",
+        "units": "g/kg",
+    },
+    "ozone_mixing_ratio": {
+        "pyFV3_key": "o3mr",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "o3mr",
+        "units": "g/kg",
+    },
+    "turbulent_kinetic_energy": {
+        "pyFV3_key": "sgs_tke",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "sgs_tke",
+        "units": "g/kg",
+    },
+    "cloud_fraction": {
+        "pyFV3_key": "cloud",
+        "dims": [Z_DIM, Y_DIM, X_DIM],
+        "restart_name": "cld_amt",
+        "units": "g/kg",
+    },
+}
 
 
 @dataclass()
@@ -148,74 +207,10 @@ class DycoreState:
             "intent": "inout",
         }
     )
-    qvapor: Quantity = field(
+    tracers: Tracers = field(
         metadata={
-            "name": "specific_humidity",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-        }
-    )
-    qliquid: Quantity = field(
-        metadata={
-            "name": "cloud_water_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qice: Quantity = field(
-        metadata={
-            "name": "cloud_ice_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qrain: Quantity = field(
-        metadata={
-            "name": "rain_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qsnow: Quantity = field(
-        metadata={
-            "name": "snow_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qgraupel: Quantity = field(
-        metadata={
-            "name": "graupel_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qo3mr: Quantity = field(
-        metadata={
-            "name": "ozone_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-            "intent": "inout",
-        }
-    )
-    qsgs_tke: Quantity = field(
-        metadata={
-            "name": "turbulent_kinetic_energy",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "m**2/s**2",
-            "intent": "inout",
-        }
-    )
-    qcld: Quantity = field(
-        metadata={
-            "name": "cloud_fraction",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "",
+            "name": "tracers",
+            "units": "g/kg",
             "intent": "inout",
         }
     )
@@ -297,6 +292,8 @@ class DycoreState:
 
     def __post_init__(self):
         for _field in fields(self):
+            if _field.name == "tracers":
+                continue
             for check_name in ["units", "dims"]:
                 if check_name in _field.metadata:
                     required = _field.metadata[check_name]
@@ -310,7 +307,7 @@ class DycoreState:
                         )
 
     @classmethod
-    def init_zeros(cls, quantity_factory: QuantityFactory):
+    def init_zeros(cls, quantity_factory: QuantityFactory, tracer_list: List[str]):
         initial_storages = {}
         for _field in fields(cls):
             if "dims" in _field.metadata.keys():
@@ -319,13 +316,25 @@ class DycoreState:
                     _field.metadata["units"],
                     dtype=Float,
                 ).data
+        for name in tracer_list:
+            initial_storages[name] = quantity_factory.zeros(
+                Tracers.dims,
+                Tracers.unit,
+                dtype=Float,
+            ).data
         return cls.init_from_storages(
-            storages=initial_storages, sizer=quantity_factory.sizer
+            storages=initial_storages,
+            quantity_factory=quantity_factory,
+            tracer_list=tracer_list,
         )
 
     @classmethod
     def init_from_numpy_arrays(
-        cls, dict_of_numpy_arrays, sizer: GridSizer, backend: str
+        cls,
+        dict_of_numpy_arrays,
+        quantity_factory: QuantityFactory,
+        backend: str,
+        tracer_list: List[str],
     ):
         field_names = [_field.name for _field in fields(cls)]
         for variable_name in dict_of_numpy_arrays.keys():
@@ -341,9 +350,21 @@ class DycoreState:
                     dict_of_numpy_arrays[_field.name],
                     dims,
                     _field.metadata["units"],
-                    origin=sizer.get_origin(dims),
-                    extent=sizer.get_extent(dims),
+                    origin=quantity_factory.sizer.get_origin(dims),
+                    extent=quantity_factory.sizer.get_extent(dims),
                     gt4py_backend=backend,
+                )
+            elif issubclass(_field.type, Tracers):
+                if len(dict_of_numpy_arrays[_field.name]) != len(tracer_list):
+                    raise ValueError(
+                        "[pyFV3] DycoreState init:"
+                        f" tracer list size ({len(tracer_list)})"
+                        " doesn't match the inputs size"
+                        f" ({len(dict_of_numpy_arrays[_field.name])})"
+                    )
+                dict_state[_field.name] = Tracers.make(
+                    quantity_factory=quantity_factory,
+                    tracer_mapping=tracer_list,
                 )
         state = cls(**dict_state)  # type: ignore
         return state
@@ -352,7 +373,8 @@ class DycoreState:
     def init_from_storages(
         cls,
         storages: Mapping[str, Any],
-        sizer: GridSizer,
+        quantity_factory: QuantityFactory,
+        tracer_list: List[str],
         bdt: float = 0.0,
         mdt: float = 0.0,
     ):
@@ -364,10 +386,19 @@ class DycoreState:
                     storages[_field.name],
                     dims,
                     _field.metadata["units"],
-                    origin=sizer.get_origin(dims),
-                    extent=sizer.get_extent(dims),
+                    origin=quantity_factory.sizer.get_origin(dims),
+                    extent=quantity_factory.sizer.get_extent(dims),
                 )
                 inputs[_field.name] = quantity
+            elif "tracers" == _field.name:
+                tracers = Tracers.make(
+                    quantity_factory=quantity_factory,
+                    tracer_mapping=tracer_list,
+                )
+                for name in tracer_list:
+                    tracers[name].data[:] = storages[name][:]
+                inputs[_field.name] = tracers
+
         return cls(**inputs, bdt=bdt, mdt=mdt)
 
     @classmethod
@@ -381,10 +412,14 @@ class DycoreState:
         state_dict: Mapping[str, Quantity] = open_restart(
             dirname=path,
             communicator=communicator,
-            tracer_properties=TRACER_PROPERTIES,
+            tracer_properties=DEFAULT_TRACER_PROPERTIES,
         )
-
-        new = cls.init_zeros(quantity_factory=quantity_factory)
+        new = cls.init_zeros(
+            quantity_factory=quantity_factory,
+            tracer_list=[
+                str(prop["pyFV3_key"]) for prop in DEFAULT_TRACER_PROPERTIES.values()
+            ],
+        )
         new.pt.view[:] = new.pt.np.asarray(
             state_dict["air_temperature"].transpose(new.pt.dims).view[:]
         )
@@ -405,31 +440,35 @@ class DycoreState:
         new.v.view[:] = new.v.np.asarray(
             state_dict["y_wind"].transpose(new.v.dims).view[:]
         )
-        new.qvapor.view[:] = new.qvapor.np.asarray(
-            state_dict["specific_humidity"].transpose(new.qvapor.dims).view[:]
+        new.tracers["vapor"].view[:] = new.tracers["vapor"].np.asarray(
+            state_dict["specific_humidity"].transpose(new.tracers["vapor"].dims).view[:]
         )
-        new.qliquid.view[:] = new.qliquid.np.asarray(
+        new.tracers["liquid"].view[:] = new.tracers["liquid"].np.asarray(
             state_dict["cloud_liquid_water_mixing_ratio"]
-            .transpose(new.qliquid.dims)
+            .transpose(new.tracers["liquid"].dims)
             .view[:]
         )
-        new.qice.view[:] = new.qice.np.asarray(
-            state_dict["cloud_ice_mixing_ratio"].transpose(new.qice.dims).view[:]
+        new.tracers["ice"].view[:] = new.tracers["ice"].np.asarray(
+            state_dict["cloud_ice_mixing_ratio"]
+            .transpose(new.tracers["ice"].dims)
+            .view[:]
         )
-        new.qrain.view[:] = new.qrain.np.asarray(
-            state_dict["rain_mixing_ratio"].transpose(new.qrain.dims).view[:]
+        new.tracers["rain"].view[:] = new.tracers["rain"].np.asarray(
+            state_dict["rain_mixing_ratio"].transpose(new.tracers["rain"].dims).view[:]
         )
-        new.qsnow.view[:] = new.qsnow.np.asarray(
-            state_dict["snow_mixing_ratio"].transpose(new.qsnow.dims).view[:]
+        new.tracers["snow"].view[:] = new.tracers["snow"].np.asarray(
+            state_dict["snow_mixing_ratio"].transpose(new.tracers["snow"].dims).view[:]
         )
-        new.qgraupel.view[:] = new.qgraupel.np.asarray(
-            state_dict["graupel_mixing_ratio"].transpose(new.qgraupel.dims).view[:]
+        new.tracers["graupel"].view[:] = new.tracers["graupel"].np.asarray(
+            state_dict["graupel_mixing_ratio"]
+            .transpose(new.tracers["graupel"].dims)
+            .view[:]
         )
-        new.qo3mr.view[:] = new.qo3mr.np.asarray(
-            state_dict["ozone_mixing_ratio"].transpose(new.qo3mr.dims).view[:]
+        new.tracers["o3mr"].view[:] = new.tracers["o3mr"].np.asarray(
+            state_dict["ozone_mixing_ratio"].transpose(new.tracers["o3mr"].dims).view[:]
         )
-        new.qcld.view[:] = new.qcld.np.asarray(
-            state_dict["cloud_fraction"].transpose(new.qcld.dims).view[:]
+        new.tracers["cloud"].view[:] = new.tracers["cld"].np.asarray(
+            state_dict["cloud_fraction"].transpose(new.tracers["cld"].dims).view[:]
         )
         new.delz.view[:] = new.delz.np.asarray(
             state_dict["vertical_thickness_of_atmospheric_layer"]
@@ -439,22 +478,34 @@ class DycoreState:
 
         return new
 
+    def _xr_dataarray_from_quantity(self, name: str, metadata: Dict[str, Any], data):
+        dims = [f"{dim_name}_{name}" for dim_name in metadata["dims"]]
+        return xr.DataArray(
+            gt_utils.asarray(data),
+            dims=dims,
+            attrs={
+                "long_name": metadata["name"],
+                "units": metadata.get("units", "unknown"),
+            },
+        )
+
     @property
     def xr_dataset(self):
         data_vars = {}
         for name, field_info in self.__dataclass_fields__.items():
             if issubclass(field_info.type, Quantity):
-                dims = [
-                    f"{dim_name}_{name}" for dim_name in field_info.metadata["dims"]
-                ]
-                data_vars[name] = xr.DataArray(
-                    gt_utils.asarray(getattr(self, name).data),
-                    dims=dims,
-                    attrs={
-                        "long_name": field_info.metadata["name"],
-                        "units": field_info.metadata.get("units", "unknown"),
-                    },
+                data_vars[name] = self._xr_dataarray_from_quantity(
+                    name=name,
+                    metadata=field_info.metadata,
+                    data=getattr(self, name).data,
                 )
+            if isinstance(field_info.type, Tracers):
+                for tracer in getattr(self, name).values():
+                    data_vars[name] = self._xr_dataarray_from_quantity(
+                        name=name,
+                        metadata=field_info.metadata,
+                        data=tracer,
+                    )
         return xr.Dataset(data_vars=data_vars)
 
     def __getitem__(self, item):
@@ -465,52 +516,3 @@ class DycoreState:
             return {k: v for k, v in asdict(self).items() if isinstance(v, Quantity)}
         else:
             return {k: v for k, v in asdict(self).items()}
-
-
-TRACER_PROPERTIES = {
-    "specific_humidity": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "sphum",
-        "units": "g/kg",
-    },
-    "cloud_liquid_water_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "liq_wat",
-        "units": "g/kg",
-    },
-    "cloud_ice_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "ice_wat",
-        "units": "g/kg",
-    },
-    "rain_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "rainwat",
-        "units": "g/kg",
-    },
-    "snow_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "snowwat",
-        "units": "g/kg",
-    },
-    "graupel_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "graupel",
-        "units": "g/kg",
-    },
-    "ozone_mixing_ratio": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "o3mr",
-        "units": "g/kg",
-    },
-    "turbulent_kinetic_energy": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "sgs_tke",
-        "units": "g/kg",
-    },
-    "cloud_fraction": {
-        "dims": [Z_DIM, Y_DIM, X_DIM],
-        "restart_name": "cld_amt",
-        "units": "g/kg",
-    },
-}

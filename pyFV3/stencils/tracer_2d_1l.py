@@ -1,16 +1,10 @@
 import math
-from typing import Dict
+from typing import List
 
 import gt4py.cartesian.gtscript as gtscript
 from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval, region
 
-from ndsl import (
-    Quantity,
-    QuantityFactory,
-    StencilFactory,
-    WrappedHaloUpdater,
-    orchestrate,
-)
+from ndsl import QuantityFactory, StencilFactory, WrappedHaloUpdater, orchestrate
 from ndsl.constants import (
     N_HALO_DEFAULT,
     X_DIM,
@@ -22,6 +16,7 @@ from ndsl.constants import (
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.typing import Communicator
 from pyFV3.stencils.fvtp2d import FiniteVolumeTransport
+from pyFV3.tracers import Tracers
 
 
 @gtscript.function
@@ -192,7 +187,8 @@ class TracerAdvection:
         transport: FiniteVolumeTransport,
         grid_data,
         comm: Communicator,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
+        exclude_tracers: List[str],
     ):
         orchestrate(
             obj=self,
@@ -201,8 +197,9 @@ class TracerAdvection:
         )
         grid_indexing = stencil_factory.grid_indexing
         self.grid_indexing = grid_indexing  # needed for selective validation
-        self._tracer_count = len(tracers)
+        self._tracer_count = tracers.count
         self.grid_data = grid_data
+        self._exclude_tracers = exclude_tracers
 
         self._x_area_flux = quantity_factory.zeros(
             [X_INTERFACE_DIM, Y_DIM, Z_DIM],
@@ -282,15 +279,23 @@ class TracerAdvection:
             n_halo=N_HALO_DEFAULT,
             dtype=Float,
         )
+
+        # We can exclude tracers from advecting and therefore also
+        # halo exchanging
+        advected_tracers = {}
+        for name, tracer in tracers.items():
+            if name in exclude_tracers:
+                continue
+            advected_tracers[name] = tracer
         self._tracers_halo_updater = WrappedHaloUpdater(
-            comm.get_scalar_halo_updater([tracer_halo_spec] * self._tracer_count),
-            tracers,
-            [t for t in tracers.keys()],
+            comm.get_scalar_halo_updater([tracer_halo_spec] * len(advected_tracers)),
+            advected_tracers,
+            [t for t in advected_tracers.keys()],
         )
 
     def __call__(
         self,
-        tracers: Dict[str, Quantity],
+        tracers: Tracers,
         dp1,
         x_mass_flux,
         y_mass_flux,
@@ -392,26 +397,29 @@ class TracerAdvection:
                 self.grid_data.rarea,
                 dp2,
             )
-            for q in tracers.values():
-                self.finite_volume_transport(
-                    q,
-                    x_courant,
-                    y_courant,
-                    self._x_area_flux,
-                    self._y_area_flux,
-                    self._x_flux,
-                    self._y_flux,
-                    x_mass_flux=x_mass_flux,
-                    y_mass_flux=y_mass_flux,
-                )
-                self._apply_tracer_flux(
-                    q,
-                    dp1,
-                    self._x_flux,
-                    self._y_flux,
-                    self.grid_data.rarea,
-                    dp2,
-                )
+            for name, q in tracers.items():
+                if name in self._exclude_tracers:
+                    pass
+                else:
+                    self.finite_volume_transport(
+                        q,
+                        x_courant,
+                        y_courant,
+                        self._x_area_flux,
+                        self._y_area_flux,
+                        self._x_flux,
+                        self._y_flux,
+                        x_mass_flux=x_mass_flux,
+                        y_mass_flux=y_mass_flux,
+                    )
+                    self._apply_tracer_flux(
+                        q,
+                        dp1,
+                        self._x_flux,
+                        self._y_flux,
+                        self.grid_data.rarea,
+                        dp2,
+                    )
             if not last_call:
                 self._tracers_halo_updater.update()
                 # we can't use variable assignment to avoid a data copy
