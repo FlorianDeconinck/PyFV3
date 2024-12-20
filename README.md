@@ -37,3 +37,4 @@ Branches:
 - ⚙️ `fix/GEOSv11_4_2/C_SW`@Florian: Fix for C_SW for 32-bit
 - ⚙️ `fix/GEOSv11_4_2/Dyncore`@Florian: Fix for Acoustics and DycoreState for 32-bit
 - ⚙️ `feature/tracer_rework_part1` @Florian: Allow for update of N Tracers
+- ⚙️ `fix/GEOS/TracerAdvection` @Florian [BASED ON `tracer_rework_part1`]: Allow for non-update of mass fluxes and courant number, f32 fixes, correct computation of `cmax` and `nsplit`, overcomputation into the algorithm
