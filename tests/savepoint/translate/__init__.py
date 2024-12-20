@@ -79,6 +79,7 @@ from .translate_riem_solver3 import TranslateRiem_Solver3
 from .translate_riem_solver_c import TranslateRiem_Solver_C
 from .translate_satadjust3d import TranslateSatAdjust3d
 from .translate_tracer2d1l import TranslateTracer2D1L
+from .translate_tracer2d1l_cmax import TranslateTracerCMax
 from .translate_updatedzc import TranslateUpdateDzC
 from .translate_updatedzd import TranslateUpdateDzD
 from .translate_xppm import TranslateXPPM, TranslateXPPM_2
