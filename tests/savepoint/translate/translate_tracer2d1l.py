@@ -26,10 +26,10 @@ class TranslateTracer2D1L(ParallelTranslate):
         self._base.in_vars["data_vars"] = {
             "tracers": {},
             "dp1": {},
-            "mfxd": grid.x3d_compute_dict(),
-            "mfyd": grid.y3d_compute_dict(),
-            "cxd": grid.x3d_compute_domain_y_dict(),
-            "cyd": grid.y3d_compute_domain_x_dict(),
+            "mfxd_R4": grid.x3d_compute_dict(),
+            "mfyd_R4": grid.y3d_compute_dict(),
+            "cxd_R4": grid.x3d_compute_domain_y_dict(),
+            "cyd_R4": grid.y3d_compute_domain_x_dict(),
         }
         self._base.in_vars["parameters"] = ["nq"]
         self._base.out_vars = self._base.in_vars["data_vars"]
@@ -52,17 +52,7 @@ class TranslateTracer2D1L(ParallelTranslate):
     def compute_parallel(self, inputs, communicator):
         tracers = Tracers.make_from_4D_array(
             quantity_factory=self._quantity_factory,
-            tracer_mapping=[
-                "vapor",
-                "liquid",
-                "rain",
-                "ice",
-                "snow",
-                "graupel",
-                "o3mr",
-                "sgs_tke",
-                "cloud",
-            ],
+            tracer_mapping=Tracers.blind_mapping_from_data(inputs["tracers"]),
             tracer_data=inputs["tracers"],
         )
         self._base.make_storage_data_input_vars(inputs, dict_4d=False)
@@ -85,19 +75,17 @@ class TranslateTracer2D1L(ParallelTranslate):
             communicator,
             tracers,
             exclude_tracers=["cloud"],
+            update_mass_courant=False,
         )
-        inputs["x_mass_flux"] = inputs.pop("mfxd")
-        inputs["y_mass_flux"] = inputs.pop("mfyd")
-        inputs["x_courant"] = inputs.pop("cxd")
-        inputs["y_courant"] = inputs.pop("cyd")
+        inputs["x_mass_flux"] = inputs.pop("mfxd_R4")
+        inputs["y_mass_flux"] = inputs.pop("mfyd_R4")
+        inputs["x_courant"] = inputs.pop("cxd_R4")
+        inputs["y_courant"] = inputs.pop("cyd_R4")
         self.tracer_advection(tracers=tracers, **inputs)
-        inputs["mfxd"] = inputs.pop("x_mass_flux")
-        inputs["mfyd"] = inputs.pop("y_mass_flux")
-        inputs["cxd"] = inputs.pop("x_courant")
-        inputs["cyd"] = inputs.pop("y_courant")
-        # Put back un-advected tracers
-        # Tracers have -1 on all cartesian because of NDSL padding
-        # Dev note: qcld is not advected in Pace dataset for some reason
+        inputs["mfxd_R4"] = inputs.pop("x_mass_flux")
+        inputs["mfyd_R4"] = inputs.pop("y_mass_flux")
+        inputs["cxd_R4"] = inputs.pop("x_courant")
+        inputs["cyd_R4"] = inputs.pop("y_courant")
         inputs["tracers"] = tracers.as_4D_array()
         outputs = self._base.slice_output(inputs)
         outputs["tracers"] = self.subset_output("tracers", outputs["tracers"])
