@@ -101,6 +101,12 @@ class Tracers:
             tracers._quantities[name] = qty
         return tracers
 
+    @staticmethod
+    def blind_mapping_from_data(tracer_data: np.ndarray):
+        if len(tracer_data.shape) != 4:
+            raise ValueError("Expected 4D field as input")
+        return [f"Tracer_{idx}" for idx in range(tracer_data.shape[3])]
+
     @classmethod
     def make_from_4D_array(
         cls,
