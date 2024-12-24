@@ -31,7 +31,7 @@ Branches:
 - 🔶 `fix/RayleighDamping_mixed_precision`@Florian: fix the Ray_Fast test
 - 🔶 `GEOS_update/yppm_xppm`@Florian: fix the YPPM/XPPM with `hord = -6`
 - 🔶 `fix/DelnFlux_f32_support`@Florian: Fix for f32 support for DelnFlux (partial pass)
-- ⚙️ `fix/GEOS/D_SW`@Florian: Fix D_SW heat dissipation and column calculation (partial pass)
+- ⚙️ `fix/GEOS/D_SW`@Florian: Fix D_SW heat dissipation, column calculation and new `dpx` accumulation (partial pass)
 - ⚙️ `fix/GEOSv11_4_2/A2B_Ord4`@Florian: Fix for 32-bit A2B_Ord4
 - ⚙️ `fix/GEOSv11_4_2/RiemanSolver`@Florian: Fix for 32-bit A2B_Ord4
 - ⚙️ `fix/GEOSv11_4_2/C_SW`@Florian: Fix for C_SW for 32-bit
