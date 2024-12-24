@@ -48,6 +48,7 @@ class TranslateD_SW(TranslateDycoreFortranData2Py):
             "mfy": grid.y3d_compute_dict() | {"serialname": "mfyd_R8"},
             "cx": grid.x3d_compute_domain_y_dict() | {"serialname": "cxd_R8"},
             "cy": grid.y3d_compute_domain_x_dict() | {"serialname": "cyd_R8"},
+            "dpx": grid.compute_dict(),
             "heat_source": {},
             "diss_est": {},
             "q_con": {},
@@ -58,7 +59,7 @@ class TranslateD_SW(TranslateDycoreFortranData2Py):
             "divgd": grid.default_dict_buffer_2d(),
         }
         for name, info in self.in_vars["data_vars"].items():
-            if name not in ["mfx", "mfy", "cx", "cy"]:
+            if name not in ["mfx", "mfy", "cx", "cy", "dpx"]:
                 info["serialname"] = name + "d"
         self.in_vars["parameters"] = ["dt"]
         self.out_vars = self.in_vars["data_vars"].copy()

@@ -203,7 +203,18 @@ def dyncore_temporaries(
     quantity_factory: QuantityFactory,
 ) -> Mapping[str, Quantity]:
     temporaries: Dict[str, Quantity] = {}
-    for name in ["ut", "vt", "gz", "zh", "pem", "pkc", "pk3", "heat_source", "cappa"]:
+    for name in [
+        "ut",
+        "vt",
+        "gz",
+        "zh",
+        "pem",
+        "pkc",
+        "pk3",
+        "heat_source",
+        "cappa",
+        "dpx",
+    ]:
         # TODO: the dimensions of ut and vt may not be correct,
         #       because they are not used. double-check and correct as needed.
         temporaries[name] = quantity_factory.zeros(
@@ -480,6 +491,7 @@ class AcousticDynamics:
         self._xfx = temporaries["xfx"]
         self._yfx = temporaries["yfx"]
         self._ws3 = temporaries["ws3"]
+        self._dpx = temporaries["dpx"]
 
         if not config.hydrostatic:
             self._pk3.data[:] = HUGE_R
@@ -873,30 +885,31 @@ class AcousticDynamics:
             # by 1 timestep
             self._checkpoint_dsw_in(state)
             self.dgrid_shallow_water_lagrangian_dynamics(
-                self._vt,
-                state.delp,
-                state.pt,
-                state.u,
-                state.v,
-                state.w,
-                state.uc,
-                state.vc,
-                state.ua,
-                state.va,
-                self._divgd,
-                state.mfxd,
-                state.mfyd,
-                state.cxd,
-                state.cyd,
-                self._crx,
-                self._cry,
-                self._xfx,
-                self._yfx,
-                state.q_con,
-                self._zh,
-                self._heat_source,
-                state.diss_estd,
-                dt_acoustic_substep,
+                delpc=self._vt,
+                delp=state.delp,
+                pt=state.pt,
+                u=state.u,
+                v=state.v,
+                w=state.w,
+                uc=state.uc,
+                vc=state.vc,
+                ua=state.ua,
+                va=state.va,
+                divgd=self._divgd,
+                mfx=state.mfxd,
+                mfy=state.mfyd,
+                cx=state.cxd,
+                cy=state.cyd,
+                dpx=self._dpx,
+                crx=self._crx,
+                cry=self._cry,
+                xfx=self._xfx,
+                yfx=self._yfx,
+                q_con=state.q_con,
+                zh=self._zh,
+                heat_source=self._heat_source,
+                diss_est=state.diss_estd,
+                dt=dt_acoustic_substep,
             )
             self._checkpoint_dsw_out(state)
             # note that uc and vc are not needed at all past this point.

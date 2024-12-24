@@ -203,6 +203,16 @@ def apply_pt_delp_fluxes_stencil_defn(
         pt, delp = apply_pt_delp_fluxes(gx, gy, rarea, fx, fy, pt, delp)
 
 
+def delp_increment_accumulation(
+    dpx: FloatField64,
+    fx: FloatField,
+    fy: FloatField,
+    rarea: FloatFieldIJ,
+):
+    with computation(PARALLEL), interval(...):
+        dpx = dpx + ((fx - fx[1, 0, 0]) + (fy - fy[0, 1, 0])) * rarea
+
+
 def compute_kinetic_energy(
     vc: FloatField,
     uc: FloatField,
@@ -1025,6 +1035,10 @@ class DGridShallowWaterLagrangianDynamics:
             da_min=damping_coefficients.da_min_c,
             nord=self._column_namelist["nord_w"],
         )
+        self._accumulate_delp = stencil_factory.from_dims_halo(
+            func=delp_increment_accumulation,
+            compute_dims=[X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM],
+        )
 
     def __call__(
         self,
@@ -1043,6 +1057,7 @@ class DGridShallowWaterLagrangianDynamics:
         mfy: FloatField64,
         cx: FloatField64,
         cy: FloatField64,
+        dpx: FloatField64,
         crx: FloatField,
         cry: FloatField,
         xfx: FloatField,
@@ -1079,6 +1094,7 @@ class DGridShallowWaterLagrangianDynamics:
             mfy (inout): accumulated y mass flux
             cx (inout): accumulated Courant number in the x direction
             cy (inout): accumulated Courant number in the y direction
+            dpx (inout): accumulated delp export for Dry Mass Roundoff Control
             crx (out): local courant number in the x direction
             cry (out): local courant number in the y direction
             xfx (out): flux of area in x-direction, in units of m^2
@@ -1216,6 +1232,13 @@ class DGridShallowWaterLagrangianDynamics:
 
         self._adjust_w_and_qcon_stencil(
             w, delp, self._tmp_dw, q_con, self._column_namelist["damp_w"]
+        )
+
+        self._accumulate_delp(
+            dpx=dpx,
+            fx=self._tmp_fx,
+            fy=self._tmp_fy,
+            rarea=self.grid_data.rarea,
         )
         # at this point, pt, delp, w and q_con have been stepped forward in time
         # the rest of this function updates the winds
