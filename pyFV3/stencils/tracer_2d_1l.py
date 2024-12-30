@@ -27,7 +27,7 @@ from ndsl.constants import (
     Z_DIM,
 )
 from ndsl.dsl.typing import FloatField, FloatFieldIJ, FloatFieldK
-from ndsl.typing import Communicator
+from ndsl.comm.communicator import Communicator, ReductionOperator
 from pyFV3.stencils.fvtp2d import FiniteVolumeTransport
 from pyFV3.tracers import Tracers
 
@@ -549,5 +549,5 @@ class TracerCMax:
             sin_sg5=self._grid_data.sin_sg5,
             cmax=self._tmp_cmax,
         )
-        self._tmp_cmax_in_K.data[:] = self._tmp_cmax.data.max(axis=0).max(axis=0)[:]
-        self._comm.buffer_all_reduce(self._tmp_cmax_in_K, cmax)
+        cmax.data[:] = self._tmp_cmax.data.max(axis=0).max(axis=0)[:]
+        self._comm.all_reduce_per_element_in_place(cmax, ReductionOperator.MAX)
