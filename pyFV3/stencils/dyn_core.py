@@ -239,6 +239,13 @@ def dyncore_temporaries(
             units="unknown",
             dtype=Float,
         )
+    for name in ["dpx"]:
+        temporaries[name] = quantity_factory.zeros(
+            dims=[X_DIM, Y_DIM, Z_DIM],
+            units="unknown",
+            dtype=np.float64,
+            allow_mismatch_float_precision=True,
+        )
     return temporaries
 
 
@@ -448,8 +455,7 @@ class AcousticDynamics:
             )
         if config.beta < -0.1:
             raise RuntimeError(
-                "Acoustics (dyn_core): beta < 0.1 is not implemented"
-                " (one_grad_p, etc.)"
+                "Acoustics (dyn_core): beta < 0.1 is not implemented (one_grad_p, etc.)"
             )
         if config.use_logp:
             raise RuntimeError("Acoustics (dyn_core): use_logp=True is not implemented")
