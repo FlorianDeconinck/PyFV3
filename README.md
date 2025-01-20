@@ -35,6 +35,9 @@ Branches:
 - ⚙️ `fix/GEOSv11_4_2/A2B_Ord4`@Florian: Fix for 32-bit A2B_Ord4
 - ⚙️ `fix/GEOSv11_4_2/RiemanSolver`@Florian: Fix for 32-bit A2B_Ord4
 - ⚙️ `fix/GEOSv11_4_2/C_SW`@Florian: Fix for C_SW for 32-bit
-- ⚙️ `fix/GEOSv11_4_2/Dyncore`@Florian: Fix for Acoustics and DycoreState for 32-bit
+- ⚙️ `fix/GEOSv11_4_2/Dyncore`@Florian: Fix for Acoustics and DycoreState for 32-bit and `dpx` calculation
+  - MERGE ORDER: after `fix/GEOS/D_SW`
 - ⚙️ `feature/tracer_rework_part1` @Florian: Allow for update of N Tracers
-- ⚙️ `fix/GEOS/TracerAdvection` @Florian [BASED ON `tracer_rework_part1`]: Allow for non-update of mass fluxes and courant number, f32 fixes, correct computation of `cmax` and `nsplit`, overcomputation into the algorithm
+- ⚙️ `fix/GEOS/TracerAdvection` @Florian: Allow for non-update of mass fluxes and courant number, f32 fixes, correct computation of `cmax` and `nsplit`, overcomputation into the algorithm
+  - BASED ON `tracer_rework_part1`
+  - REQUIRES: `ndsl` with tracer rework
