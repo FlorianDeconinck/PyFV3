@@ -239,13 +239,6 @@ def dyncore_temporaries(
             units="unknown",
             dtype=Float,
         )
-    for name in ["dpx"]:
-        temporaries[name] = quantity_factory.zeros(
-            dims=[X_DIM, Y_DIM, Z_DIM],
-            units="unknown",
-            dtype=np.float64,
-            allow_mismatch_float_precision=True,
-        )
     return temporaries
 
 
@@ -737,6 +730,7 @@ class AcousticDynamics:
     def __call__(
         self,
         state: DycoreState,
+        dpx,
         timestep: Float,  # time to step forward by in seconds
         n_map=1,  # [DaCe] replaces state.n_map
     ):
@@ -888,30 +882,31 @@ class AcousticDynamics:
             # by 1 timestep
             self._checkpoint_dsw_in(state)
             self.dgrid_shallow_water_lagrangian_dynamics(
-                self._vt,
-                state.delp,
-                state.pt,
-                state.u,
-                state.v,
-                state.w,
-                state.uc,
-                state.vc,
-                state.ua,
-                state.va,
-                self._divgd,
-                state.mfxd,
-                state.mfyd,
-                state.cxd,
-                state.cyd,
-                self._crx,
-                self._cry,
-                self._xfx,
-                self._yfx,
-                state.q_con,
-                self._zh,
-                self._heat_source,
-                state.diss_estd,
-                dt_acoustic_substep,
+                delpc=self._vt,
+                delp=state.delp,
+                pt=state.pt,
+                u=state.u,
+                v=state.v,
+                w=state.w,
+                uc=state.uc,
+                vc=state.vc,
+                ua=state.ua,
+                va=state.va,
+                divgd=self._divgd,
+                mfx=state.mfxd,
+                mfy=state.mfyd,
+                cx=state.cxd,
+                cy=state.cyd,
+                dpx=dpx,
+                crx=self._crx,
+                cry=self._cry,
+                xfx=self._xfx,
+                yfx=self._yfx,
+                q_con=state.q_con,
+                zh=self._zh,
+                heat_source=self._heat_source,
+                diss_est=state.diss_estd,
+                dt=dt_acoustic_substep,
             )
             self._checkpoint_dsw_out(state)
             # note that uc and vc are not needed at all past this point.
