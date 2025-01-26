@@ -7,7 +7,6 @@ from gt4py.cartesian.gtscript import PARALLEL, FORWARD, computation, interval
 import ndsl.dsl.gt4py_utils as utils
 import pyFV3.stencils.moist_cv as moist_cv
 from ndsl import Quantity, QuantityFactory, StencilFactory, WrappedHaloUpdater
-from ndsl.checkpointer import NullCheckpointer
 from ndsl.comm.mpi import MPI
 from ndsl.constants import (
     KAPPA,
@@ -35,7 +34,7 @@ from ndsl.logging import ndsl_log
 from ndsl.performance import NullTimer, Timer
 from ndsl.stencils.basic_operations import copy_defn, set_value_defn
 from ndsl.stencils.c2l_ord import CubedToLatLon
-from ndsl.typing import Checkpointer, Communicator
+from ndsl.typing import Communicator
 from pyFV3._config import DynamicalCoreConfig
 from pyFV3.dycore_state import DycoreState
 from pyFV3.stencils import fvtp2d, tracer_2d_1l
@@ -244,7 +243,6 @@ class DynamicalCore:
         phis: Quantity,
         state: DycoreState,
         timestep: timedelta,
-        checkpointer: Optional[Checkpointer] = None,
     ):
         """
         Args:
@@ -257,9 +255,6 @@ class DynamicalCore:
             phis: surface geopotential height
             state: model state
             timestep: model timestep
-            checkpointer: if given, used to perform operations on model data
-                at specific points in model execution, such as testing against
-                reference data
         """
         orchestrate(
             obj=self,
@@ -282,41 +277,6 @@ class DynamicalCore:
             dace_compiletime_args=["state", "timer"],
         )
 
-        orchestrate(
-            obj=self,
-            config=stencil_factory.config.dace_config,
-            method_to_orchestrate="_checkpoint_fvdynamics",
-            dace_compiletime_args=["state", "tag"],
-        )
-
-        orchestrate(
-            obj=self,
-            config=stencil_factory.config.dace_config,
-            method_to_orchestrate="_checkpoint_remapping_in",
-            dace_compiletime_args=[
-                "state",
-            ],
-        )
-
-        orchestrate(
-            obj=self,
-            config=stencil_factory.config.dace_config,
-            method_to_orchestrate="_checkpoint_remapping_out",
-            dace_compiletime_args=["state"],
-        )
-
-        orchestrate(
-            obj=self,
-            config=stencil_factory.config.dace_config,
-            method_to_orchestrate="_checkpoint_tracer_advection_in",
-            dace_compiletime_args=["state"],
-        )
-        orchestrate(
-            obj=self,
-            config=stencil_factory.config.dace_config,
-            method_to_orchestrate="_checkpoint_tracer_advection_out",
-            dace_compiletime_args=["state"],
-        )
         if timestep == timedelta(seconds=0):
             raise RuntimeError(
                 "Bad dynamical core configuration:"
@@ -324,11 +284,6 @@ class DynamicalCore:
             )
         # nested and stretched_grid are options in the Fortran code which we
         # have not implemented, so they are hard-coded here.
-        self.call_checkpointer = checkpointer is not None
-        if checkpointer is None:
-            self.checkpointer: Checkpointer = NullCheckpointer()
-        else:
-            self.checkpointer = checkpointer
         nested = False
         stretched_grid = False
         grid_indexing = stencil_factory.grid_indexing
@@ -427,7 +382,6 @@ class DynamicalCore:
             phis=self._phis,
             wsd=self._wsd,
             state=state,
-            checkpointer=checkpointer,
         )
         self._hyperdiffusion = HyperdiffusionDamping(
             stencil_factory,
@@ -488,7 +442,6 @@ class DynamicalCore:
                 pfull=self._pfull,
                 tracers=state.tracers,
                 exclude_tracers=exclude_tracers,
-                checkpointer=checkpointer,
             )
 
         full_xyz_spec = quantity_factory.get_quantity_halo_spec(
@@ -574,109 +527,6 @@ class DynamicalCore:
     def _get_da_min(self) -> Float:  # type: ignore
         return Float(self._da_min)
 
-    def _checkpoint_fvdynamics(self, state: DycoreState, tag: str):
-        if self.call_checkpointer:
-            self.checkpointer(
-                f"FVDynamics-{tag}",
-                u=state.u,
-                v=state.v,
-                w=state.w,
-                delz=state.delz,
-                # ua is not checked as its halo values differ from Fortran,
-                # this can be re-enabled if no longer comparing to Fortran, if the
-                # Fortran is updated to match the Python, or if the checkpointer
-                # can check only the compute domain values
-                # ua=state.ua,
-                va=state.va,
-                uc=state.uc,
-                vc=state.vc,
-                qvapor=state.qvapor,
-            )
-
-    def _checkpoint_remapping_in(
-        self,
-        state: DycoreState,
-    ):
-        if self.call_checkpointer:
-            self.checkpointer(
-                "Remapping-In",
-                pt=state.pt,
-                delp=state.delp,
-                delz=state.delz,
-                peln=state.peln.transpose(
-                    [X_DIM, Z_INTERFACE_DIM, Y_DIM]
-                ),  # [x, z, y] fortran data
-                u=state.u,
-                v=state.v,
-                w=state.w,
-                ua=state.ua,
-                va=state.va,
-                cappa=self._cappa,
-                pk=state.pk,
-                pe=state.pe.transpose(
-                    [X_DIM, Z_INTERFACE_DIM, Y_DIM]
-                ),  # [x, z, y] fortran data
-                phis=state.phis,
-                te_2d=self._te0_2d,
-                ps=state.ps,
-                wsd=self._wsd,
-                omga=state.omga,
-                dp1=self._dp_initial,
-            )
-
-    def _checkpoint_remapping_out(
-        self,
-        state: DycoreState,
-    ):
-        if self.call_checkpointer:
-            self.checkpointer(
-                "Remapping-Out",
-                pt=state.pt,
-                delp=state.delp,
-                delz=state.delz,
-                peln=state.peln.transpose(
-                    [X_DIM, Z_INTERFACE_DIM, Y_DIM]
-                ),  # [x, z, y] fortran data
-                u=state.u,
-                v=state.v,
-                w=state.w,
-                cappa=self._cappa,
-                pkz=state.pkz,
-                pk=state.pk,
-                pe=state.pe.transpose(
-                    [X_DIM, Z_INTERFACE_DIM, Y_DIM]
-                ),  # [x, z, y] fortran data
-                dp1=self._dp_initial,
-            )
-
-    def _checkpoint_tracer_advection_in(
-        self,
-        state: DycoreState,
-    ):
-        if self.call_checkpointer:
-            self.checkpointer(
-                "Tracer2D1L-In",
-                dp1=self._dp_initial,
-                mfxd=state.mfxd,
-                mfyd=state.mfyd,
-                cxd=state.cxd,
-                cyd=state.cyd,
-            )
-
-    def _checkpoint_tracer_advection_out(
-        self,
-        state: DycoreState,
-    ):
-        if self.call_checkpointer:
-            self.checkpointer(
-                "Tracer2D1L-Out",
-                dp1=self._dp_initial,
-                mfxd=state.mfxd,
-                mfyd=state.mfyd,
-                cxd=state.cxd,
-                cyd=state.cyd,
-            )
-
     def step_dynamics(
         self,
         state: DycoreState,
@@ -689,9 +539,7 @@ class DynamicalCore:
             timer: keep time of model sections
             state: model prognostic state and inputs
         """
-        self._checkpoint_fvdynamics(state=state, tag="In")
         self._compute(state, timer)
-        self._checkpoint_fvdynamics(state=state, tag="Out")
 
     def compute_preamble(self, state: DycoreState, is_root_rank: bool):
         if self.config.hydrostatic:
@@ -809,7 +657,6 @@ class DynamicalCore:
                 if __debug__:
                     log_on_rank_0("TracerAdvection")
                 with timer.clock("TracerAdvection"):
-                    self._checkpoint_tracer_advection_in(state)
                     self.tracer_advection(
                         self.tracers,
                         self._dp_initial,
@@ -818,7 +665,6 @@ class DynamicalCore:
                         x_courant=self._cx_local,
                         y_courant=self._cy_local,
                     )
-                    self._checkpoint_tracer_advection_out(state)
             else:
                 raise NotImplementedError("z_tracer=False is not implemented")
 
@@ -840,8 +686,6 @@ class DynamicalCore:
                 if __debug__:
                     log_on_rank_0("Remapping")
                 with timer.clock("Remapping"):
-                    self._checkpoint_remapping_in(state)
-
                     if IS_GEOS:
                         self._lagrangian_to_eulerian_GEOS(
                             tracers=state.tracers,
@@ -908,7 +752,6 @@ class DynamicalCore:
                             self._conserve_total_energy,
                             self._timestep / self._k_split,
                         )
-                    self._checkpoint_remapping_out(state)
                 # TODO: can we pull this block out of the loop intead of
                 # using an if-statement?
 
