@@ -33,6 +33,27 @@ class TranslateDycoreFortranData2Py(TranslateFortranData2Py):
         self.namelist = DynamicalCoreConfig.from_namelist(namelist)
 
 
+TRACERS_IN_PYFV3 = [
+    "vapor",
+    "liquid",
+    "ice",
+    "rain",
+    "snow",
+    "graupel",
+    "cloud",
+]
+
+TRACERS_IN_FORTRAN = [
+    "qvapor",
+    "qliquid",
+    "qice",
+    "qrain",
+    "qsnow",
+    "qgraupel",
+    "qcld",
+]
+
+
 class TranslateFVDynamics(ParallelTranslateBaseSlicing):
     compute_grid_option = True
     inputs: Dict[str, Any] = {
@@ -90,25 +111,25 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             "dims": [X_DIM, Z_INTERFACE_DIM, Y_DIM],
             "n_halo": 0,
         },
-        "mfxd": {
+        "mfxd_FV": {
             "name": "accumulated_x_mass_flux",
             "dims": [X_INTERFACE_DIM, Y_DIM, Z_DIM],
             "units": "unknown",
             "n_halo": 0,
         },
-        "mfyd": {
+        "mfyd_FV": {
             "name": "accumulated_y_mass_flux",
             "dims": [X_DIM, Y_INTERFACE_DIM, Z_DIM],
             "units": "unknown",
             "n_halo": 0,
         },
-        "cxd": {
+        "cxd_FV": {
             "name": "accumulated_x_courant_number",
             "dims": [X_INTERFACE_DIM, Y_DIM, Z_DIM],
             "units": "",
             "n_halo": (0, 3),
         },
-        "cyd": {
+        "cyd_FV": {
             "name": "accumulated_y_courant_number",
             "dims": [X_DIM, Y_INTERFACE_DIM, Z_DIM],
             "units": "",
@@ -194,16 +215,6 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             "dims": [X_DIM, Y_DIM, Z_DIM],
             "units": "kg/kg",
         },
-        "qo3mr": {
-            "name": "ozone_mixing_ratio",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "kg/kg",
-        },
-        "qsgs_tke": {
-            "name": "turbulent_kinetic_energy",
-            "dims": [X_DIM, Y_DIM, Z_DIM],
-            "units": "m**2/s**2",
-        },
         "qcld": {
             "name": "cloud_fraction",
             "dims": [X_DIM, Y_DIM, Z_DIM],
@@ -243,8 +254,6 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             "qrain": grid.compute_dict(),
             "qsnow": grid.compute_dict(),
             "qgraupel": grid.compute_dict(),
-            "qo3mr": grid.compute_dict(),
-            "qsgs_tke": grid.compute_dict(),
             "qcld": {},
             "ps": {},
             "pe": {
@@ -274,10 +283,10 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             "va": {},
             "uc": grid.x3d_domain_dict(),
             "vc": grid.y3d_domain_dict(),
-            "mfxd": grid.x3d_compute_dict(),
-            "mfyd": grid.y3d_compute_dict(),
-            "cxd": grid.x3d_compute_domain_y_dict(),
-            "cyd": grid.y3d_compute_domain_x_dict(),
+            "mfxd_FV": grid.x3d_compute_dict(),
+            "mfyd_FV": grid.y3d_compute_dict(),
+            "cxd_FV": grid.x3d_compute_domain_y_dict(),
+            "cyd_FV": grid.y3d_compute_domain_x_dict(),
             "diss_estd": {},
         }
         self._base.in_vars["data_vars"].update(fv_dynamics_vars)
@@ -290,8 +299,13 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
         self.max_error = 1e-5
 
         self.ignore_near_zero_errors = {}
-        for qvar in utils.tracer_variables:
-            self.ignore_near_zero_errors[qvar] = True
+        self.ignore_near_zero_errors["qvapor"] = True
+        self.ignore_near_zero_errors["qliquid"] = True
+        self.ignore_near_zero_errors["qice"] = True
+        self.ignore_near_zero_errors["qrain"] = True
+        self.ignore_near_zero_errors["qsnow"] = True
+        self.ignore_near_zero_errors["qgraupel"] = True
+        self.ignore_near_zero_errors["qcld"] = True
         self.ignore_near_zero_errors["q_con"] = True
         self.dycore: Optional[fv_dynamics.DynamicalCore] = None
         self.stencil_factory = stencil_factory
@@ -299,6 +313,19 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
 
     def state_from_inputs(self, inputs):
         input_storages = super().state_from_inputs(inputs)
+        # extract tracers
+        input_storages["vapor"] = input_storages.pop("qvapor")
+        input_storages["liquid"] = input_storages.pop("qliquid")
+        input_storages["ice"] = input_storages.pop("qice")
+        input_storages["rain"] = input_storages.pop("qrain")
+        input_storages["snow"] = input_storages.pop("qsnow")
+        input_storages["graupel"] = input_storages.pop("qgraupel")
+        input_storages["cloud"] = input_storages.pop("qcld")
+        # Move fluxes and courant numbers
+        input_storages["mfxd"] = input_storages.pop("mfxd_FV")
+        input_storages["mfyd"] = input_storages.pop("mfyd_FV")
+        input_storages["cxd"] = input_storages.pop("cxd_FV")
+        input_storages["cyd"] = input_storages.pop("cyd_FV")
         # making sure we init DycoreState with the exact set of variables
         accepted_keys = [_field.name for _field in fields(DycoreState)]
         todelete = []
@@ -352,7 +379,12 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
         outputs = {}
         storages = {}
         for name, properties in self.outputs.items():
-            if isinstance(state[name], Quantity):
+            if name in TRACERS_IN_FORTRAN:
+                idx = TRACERS_IN_FORTRAN.index(name)
+                storages[name] = state["tracers"][TRACERS_IN_PYFV3[idx]].data
+            elif name in ["mfxd_FV", "mfyd_FV", "cxd_FV", "cyd_FV"]:
+                storages[name] = state[name[:-3]].data
+            elif isinstance(state[name], Quantity):
                 storages[name] = state[name].data
             elif len(self.outputs[name]["dims"]) > 0:
                 storages[name] = state[name]  # assume it's a storage
