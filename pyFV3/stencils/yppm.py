@@ -313,7 +313,7 @@ class YPiecewiseParabolic:
         # grid.dya
         if grid_type == 3 or grid_type > 4:
             raise NotImplementedError(
-                "Y Piecewise Parabolic (xppm): "
+                "Y Piecewise Parabolic (yppm): "
                 f" grid type {grid_type} not implemented. <3 or 4 available."
             )
 
@@ -351,7 +351,7 @@ class YPiecewiseParabolic:
         q_mean_advected_through_y_interface: FloatField,
     ):
         """
-        Determine the mean value of q_in to be advected along y-interfaces.
+        Determine the mean value per area of q_in to be advected along y-interfaces.
 
         This is done by integrating a piecewise-parabolic svbgrid reconstruction
         of q_in along the y-direction over the segment of gridcell which
