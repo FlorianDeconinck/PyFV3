@@ -3,6 +3,7 @@ from gt4py.cartesian.gtscript import BACKWARD, FORWARD, PARALLEL, computation, i
 
 from ndsl import Quantity, QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.stencils import corners
 
@@ -201,6 +202,7 @@ class UpdateGeopotentialHeightOnCGrid:
             domain=grid_indexing.domain_compute(add=(2, 2, 1)),
         )
 
+    @instrument
     def __call__(
         self,
         zs: FloatFieldIJ,

@@ -39,6 +39,7 @@ from ndsl.constants import (
     Z_INTERFACE_DIM,
 )
 from ndsl.dsl.dace.orchestration import dace_inhibitor
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatField64, FloatFieldIJ
 from ndsl.grid import DampingCoefficients, GridData
 from ndsl.typing import Communicator
@@ -649,6 +650,7 @@ class AcousticDynamics:
     def dt2(self, dt_acoustic_substep: Float) -> Float:
         return Float(0.5) * dt_acoustic_substep
 
+    @instrument
     def __call__(
         self,
         state: DycoreState,

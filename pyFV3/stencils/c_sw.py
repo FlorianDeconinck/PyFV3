@@ -11,6 +11,7 @@ from gt4py.cartesian.gtscript import (  # noqa
 
 from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.grid import GridData
 from ndsl.stencils import corners
@@ -642,6 +643,7 @@ class CGridShallowWaterDynamics:
             externals={"grid_type": grid_type},
         )
 
+    @instrument
     def __call__(
         self,
         delp: FloatField,
