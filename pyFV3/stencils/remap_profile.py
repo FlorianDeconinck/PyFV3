@@ -12,6 +12,7 @@ from gt4py.cartesian.gtscript import (
 
 from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM, Z_INTERFACE_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import BoolField, Float, FloatField, FloatFieldIJ
 
 
@@ -633,6 +634,7 @@ class RemapProfile:
             externals={"iv": iv, "kord": abs(kord)},
         )
 
+    @instrument
     def __call__(
         self,
         qs: FloatFieldIJ,

@@ -7,6 +7,7 @@ from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval
 from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.stencil import get_stencils_with_varied_bounds
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients
 
@@ -432,6 +433,7 @@ class DelnFlux:
             stencil_factory, damping_coefficients, rarea, nord_col, nk=nk
         )
 
+    @instrument
     def __call__(
         self,
         q: FloatField,
@@ -627,6 +629,7 @@ class DelnFluxNoSG:
             skip_passes=("UnreachableStmtPruning",),
         )
 
+    @instrument
     def __call__(self, q, fx2, fy2, damp_c, d2, mass=None):
         """
         Computes flux fields which would apply del-n damping to q,

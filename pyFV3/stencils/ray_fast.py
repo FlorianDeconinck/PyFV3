@@ -24,6 +24,7 @@ from ndsl.constants import (
     X_DIM,
     Y_DIM,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldK
 
 
@@ -232,6 +233,7 @@ class RayleighDamping:
         )
         self._initialize_damping_increment = False
 
+    @instrument
     def __call__(
         self,
         u: FloatField,

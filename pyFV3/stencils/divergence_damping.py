@@ -17,6 +17,7 @@ from ndsl import Quantity, QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
 from ndsl.dsl.dace.orchestration import dace_inhibitor, orchestrate
 from ndsl.dsl.stencil import get_stencils_with_varied_bounds
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients, GridData
 from pyFV3.stencils.a2b_ord4 import AGrid2BGridFourthOrder, doubly_periodic_a2b_ord4
@@ -582,6 +583,7 @@ class DivergenceDamping:
     def _get_da_min(self) -> np.float64:
         return self._damping_coefficients.da_min
 
+    @instrument
     def __call__(
         self,
         u: FloatField,

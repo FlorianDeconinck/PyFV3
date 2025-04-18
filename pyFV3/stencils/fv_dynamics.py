@@ -19,6 +19,7 @@ from ndsl.constants import (
     ZVIR,
 )
 from ndsl.dsl.dace.orchestration import dace_inhibitor, orchestrate
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import (
     NDSL_64BIT_FLOAT_TYPE,
     Float,
@@ -634,6 +635,7 @@ class DynamicalCore:
 
         self.dry_mass_control.reset(pe=state.pe)
 
+    @instrument
     def __call__(self, *args, **kwargs):
         return self.step_dynamics(*args, **kwargs)
 

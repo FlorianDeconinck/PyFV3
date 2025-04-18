@@ -10,6 +10,7 @@ from ndsl.constants import (
     Z_DIM,
     Z_INTERFACE_DIM,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import GridData
 from ndsl.stencils.basic_operations import adjust_divide_stencil
@@ -333,6 +334,7 @@ class LagrangianToEulerian_GEOS:
             domain=grid_indexing.domain_compute(),
         )
 
+    @instrument
     def __call__(
         self,
         tracers: Tracers,

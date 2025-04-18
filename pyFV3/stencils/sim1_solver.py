@@ -13,6 +13,7 @@ from gt4py.cartesian.gtscript import (
 import ndsl.constants as constants
 from ndsl import StencilFactory
 from ndsl.constants import X_DIM, Y_DIM, Z_INTERFACE_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 
 
@@ -162,6 +163,7 @@ class Sim1Solver:
             compute_halos=(n_halo, n_halo, 0),
         )
 
+    @instrument
     def __call__(
         self,
         dt: Float,
@@ -202,18 +204,18 @@ class Sim1Solver:
         t1g = Float(2.0) * dt * dt
         rdt = Float(1.0) / dt
         self._compute_sim1_solve(
-            w,
-            delta_mass,
-            gamma,
-            dz,
-            potential_temperature,
-            pm,
-            pe,
-            pem,
-            ws,
-            cp3,
-            dt,
-            t1g,
-            rdt,
-            self._pfac,
+            w=w,
+            delta_mass=delta_mass,
+            gamma=gamma,
+            dz=dz,
+            potential_temperature=potential_temperature,
+            pm=pm,
+            pe=pe,
+            pem=pem,
+            ws=ws,
+            cp3=cp3,
+            dt=dt,
+            t1g=t1g,
+            rdt=rdt,
+            p_fac=self._pfac,
         )

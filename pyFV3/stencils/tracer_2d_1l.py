@@ -27,6 +27,7 @@ from ndsl.constants import (
     Y_INTERFACE_DIM,
     Z_DIM,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.comm.communicator import Communicator, ReductionOperator
 from pyFV3.stencils.fvtp2d import FiniteVolumeTransport
@@ -340,6 +341,7 @@ class TracerAdvection:
             comm=comm,
         )
 
+    @instrument
     def __call__(
         self,
         tracers: Tracers,
@@ -536,6 +538,7 @@ class TracerCMax:
             units="unknown",
         )
 
+    @instrument
     def __call__(self, cx: Quantity, cy: Quantity, cmax: Quantity):
         if __debug__:
             if not isinstance(cmax, Quantity):

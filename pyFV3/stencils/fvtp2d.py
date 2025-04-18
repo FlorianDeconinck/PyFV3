@@ -6,6 +6,7 @@ from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval
 import ndsl.stencils.corners as corners
 from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.grid import DampingCoefficients, GridData
 from pyFV3.stencils.delnflux import DelnFlux
@@ -246,6 +247,7 @@ class FiniteVolumeTransport:
             q_y_flux,
         )
 
+    @instrument
     def __call__(
         self,
         q,

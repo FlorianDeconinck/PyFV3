@@ -10,6 +10,7 @@ from gt4py.cartesian.gtscript import (
 )
 
 from ndsl import StencilFactory, orchestrate
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import FloatField, FloatFieldIJ, Index3D
 from ndsl.stencils.basic_operations import sign
 from pyFV3.stencils import ppm
@@ -380,6 +381,7 @@ class YPiecewiseParabolic:
             domain=domain,
         )
 
+    @instrument
     def __call__(
         self,
         q_in: FloatField,

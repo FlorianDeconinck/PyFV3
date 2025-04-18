@@ -12,6 +12,7 @@ from gt4py.cartesian.gtscript import (
 import ndsl.constants as constants
 from ndsl import QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM, Z_INTERFACE_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from pyFV3.stencils.sim1_solver import Sim1Solver
 
@@ -196,6 +197,7 @@ class NonhydrostaticVerticalSolverCGrid:
             domain=domain,
         )
 
+    @instrument
     def __call__(
         self,
         dt2: Float,
@@ -247,31 +249,31 @@ class NonhydrostaticVerticalSolverCGrid:
         # TODO: this class is extremely similar in structure to RiemannSolver3,
         # can or should they be merged?
         self._precompute_stencil(
-            delpc,
-            cappa,
-            w3,
-            self._w,
-            gz,
-            self._dm,
-            q_con,
-            self._pem,
-            self._dz,
-            self._gm,
-            self._pm,
-            ptop,
+            delpc=delpc,
+            cappa=cappa,
+            w3=w3,
+            w=self._w,
+            gz=gz,
+            dm=self._dm,
+            q_con=q_con,
+            pem=self._pem,
+            dz=self._dz,
+            gm=self._gm,
+            pm=self._pm,
+            ptop=ptop,
         )
         self._sim1_solve(
-            dt2,
-            self._gm,
-            cappa,
-            self._pe,
-            self._dm,
-            self._pm,
-            self._pem,
-            self._w,
-            self._dz,
-            ptc,
-            ws,
+            dt=dt2,
+            gamma=self._gm,
+            cp3=cappa,
+            pe=self._pe,
+            delta_mass=self._dm,
+            pm=self._pm,
+            pem=self._pem,
+            w=self._w,
+            dz=self._dz,
+            potential_temperature=ptc,
+            ws=ws,
         )
         # pe is nonhydrostatic perturbation pressure defined on interfaces
         self._finalize_stencil(self._pe, self._pem, hs, self._dz, pef, gz, ptop)

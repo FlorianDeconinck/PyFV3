@@ -26,6 +26,7 @@ from ndsl.constants import (
     Z_DIM,
     ZVIR,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField
 from ndsl.stencils.basic_operations import dim
 from pyFV3.dycore_state import DycoreState
@@ -853,6 +854,7 @@ class DryConvectiveAdjustment:
         self._tmp_cpm = make_quantity()
         self._ratios = {0: 0.25, 1: 0.5, 2: 0.999}
 
+    @instrument
     def __call__(
         self,
         state: DycoreState,

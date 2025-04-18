@@ -8,6 +8,7 @@ from gt4py.cartesian.gtscript import (
 )
 
 from ndsl import StencilFactory, orchestrate
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.grid import GridData
 from pyFV3.stencils.d2a2c_vect import contravariant
@@ -504,8 +505,8 @@ def fxadv_fluxes_stencil(
 
     with computation(PARALLEL), interval(...):
         with horizontal(region[local_is : local_ie + 2, :]):
-            # Including the temporary (tmp) calculation enables x_area_flux and y_area_flux 
-            # to more closely precision match the respective Fortran calculation 
+            # Including the temporary (tmp) calculation enables x_area_flux and y_area_flux
+            # to more closely precision match the respective Fortran calculation
             # since Fortran also performs this temporary calcuation
             tmp = dt * uc_contra
             if uc_contra > 0:
@@ -606,6 +607,7 @@ class FiniteVolumeFluxPrep:
         #     n_halo=((2, 2), (2, 2)),
         # )
 
+    @instrument
     def __call__(
         self,
         uc,

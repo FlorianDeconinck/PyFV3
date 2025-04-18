@@ -12,6 +12,7 @@ from ndsl.constants import (
     Z_DIM,
     Z_INTERFACE_DIM,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients, GridData
 from pyFV3.stencils.delnflux import DelnFluxNoSG
@@ -319,6 +320,7 @@ class UpdateHeightOnDGrid:
             dtype=Float,
         )
 
+    @instrument
     def __call__(
         self,
         surface_height: FloatFieldIJ,

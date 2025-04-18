@@ -10,13 +10,18 @@ from gt4py.cartesian.gtscript import (
 
 from ndsl import QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, Y_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 
 
 # TODO merge with pe_halo? reuse partials?
 # NOTE: This is different from pyFV3.stencils.pe_halo.edge_pe
 def edge_pe_update(
-    pe: FloatFieldIJ, delp: FloatField, pk3: FloatField, ptop: Float, akap: Float
+    pe: FloatFieldIJ,
+    delp: FloatField,
+    pk3: FloatField,
+    ptop: Float,
+    akap: Float,
 ):
     from __externals__ import local_ie, local_is, local_je, local_js
 
@@ -68,12 +73,13 @@ class PK3Halo:
             dtype=Float,
         )
 
+    @instrument
     def __call__(self, pk3: FloatField, delp: FloatField, ptop: Float, akap: Float):
         """Update pressure raised to the kappa (pk3) in halo region.
 
         Args:
             pk3: 3D interface pressure raised to power of kappa using constant kappa
-            delp: Vertical delta in pressure
+            delp(in): Vertical delta in pressure
             ptop: The pressure level at the top of atmosphere
             akap: Poisson constant (KAPPA)
         """

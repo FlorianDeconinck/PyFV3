@@ -3,6 +3,7 @@ from gt4py.cartesian.gtscript import PARALLEL, computation, horizontal, interval
 
 from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, get_precision
 from ndsl.grid import GridData
 from ndsl.stencils import corners
@@ -592,6 +593,7 @@ class DGrid2AGrid2CGridVectors:
             domain=(grid_indexing.domain[0] + 2, jdiff, grid_indexing.domain[2]),
         )
 
+    @instrument
     def __call__(self, uc, vc, u, v, ua, va, utc, vtc):
         """
         Calculate velocity vector from D-grid to A-grid to C-grid.

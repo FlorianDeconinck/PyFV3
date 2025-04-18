@@ -14,6 +14,7 @@ from gt4py.cartesian.gtscript import (
 
 from ndsl import Quantity, QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatField64, FloatFieldIJ, FloatFieldK
 from ndsl.grid import DampingCoefficients, GridData
 from pyFV3._config import DGridShallowWaterLagrangianDynamicsConfig
@@ -1038,6 +1039,7 @@ class DGridShallowWaterLagrangianDynamics:
             compute_dims=[X_DIM, Y_DIM, Z_DIM],
         )
 
+    @instrument
     def __call__(
         self,
         delpc: FloatField,

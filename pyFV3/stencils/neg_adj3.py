@@ -4,6 +4,7 @@ from gt4py.cartesian.gtscript import BACKWARD, FORWARD, PARALLEL, computation, i
 import ndsl.constants as constants
 from ndsl import QuantityFactory, StencilFactory
 from ndsl.constants import X_DIM, Y_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 
 
@@ -384,6 +385,7 @@ class AdjustNegativeTracerMixingRatio:
             domain=grid_indexing.domain_compute(),
         )
 
+    @instrument
     def __call__(
         self,
         qvapor,

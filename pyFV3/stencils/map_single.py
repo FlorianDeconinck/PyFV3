@@ -4,6 +4,7 @@ from gt4py.cartesian.gtscript import FORWARD, PARALLEL, computation, interval
 
 from ndsl import QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import (  # noqa: F401
     Int,
     BoolFieldIJ,
@@ -312,6 +313,7 @@ class MapSingle:
     def j_extent(self):
         return self._extents[1]
 
+    @instrument
     def __call__(
         self,
         q1: FloatField,

@@ -1,4 +1,3 @@
-import xarray as xr
 import gt4py.cartesian.gtscript as gtscript
 from gt4py.cartesian.gtscript import (
     PARALLEL,
@@ -10,11 +9,11 @@ from gt4py.cartesian.gtscript import (
     region,
     sin,
     sqrt,
-    f64,
 )
 
 from ndsl import GridIndexing, QuantityFactory, StencilFactory, orchestrate
 from ndsl.constants import X_DIM, X_INTERFACE_DIM, Y_DIM, Y_INTERFACE_DIM, Z_DIM
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import (
     Float,
     FloatField,
@@ -726,6 +725,7 @@ class AGrid2BGridFourthOrder:
             domain[0] -= 1
         return tuple(origin), tuple(domain)
 
+    @instrument
     def __call__(self, qin: FloatField, qout: FloatField):
         """
         Converts qin from A-grid to B-grid in qout.

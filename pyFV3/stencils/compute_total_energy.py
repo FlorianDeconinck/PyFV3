@@ -1,4 +1,5 @@
 from ndsl import StencilFactory, QuantityFactory
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ
 from ndsl.constants import X_DIM, Y_DIM, Z_DIM, Z_INTERFACE_DIM, GRAV
 from pyFV3._config import DynamicalCoreConfig
@@ -125,6 +126,7 @@ class ComputeTotalEnergy:
         self._rsin2 = grid_data.rsin2
         self._cosa_s = grid_data.cosa_s
 
+    @instrument
     def __call__(
         self,
         hs: FloatFieldIJ,  # type: ignore

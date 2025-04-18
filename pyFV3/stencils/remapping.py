@@ -21,6 +21,7 @@ from ndsl.constants import (
     Z_DIM,
     Z_INTERFACE_DIM,
 )
+from ndsl.debug.tooling import instrument
 from ndsl.dsl.typing import Float, FloatField, FloatFieldIJ, FloatFieldK
 from ndsl.stencils.basic_operations import adjust_divide_stencil
 from ndsl.typing import Checkpointer
@@ -593,6 +594,7 @@ class LagrangianToEulerian:
             domain=grid_indexing.domain_compute(),
         )
 
+    @instrument
     def __call__(
         self,
         tracers: Tracers,
