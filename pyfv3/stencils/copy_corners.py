@@ -27,7 +27,7 @@ class CopyCornersX(NDSLRuntime):
             )
 
     def __call__(self, field: FloatField):
-        for k in dace.map[0 : field.shape[2]]:
+        for k in dace.map[0 : field.shape[2]] @ dace.ScheduleType.GPU_Device:
             if self._is_sw_corner:
                 field[0, 0, k] = field[0, 5, k]
                 field[0, 1, k] = field[1, 5, k]
@@ -81,7 +81,7 @@ class CopyCornersX(NDSLRuntime):
                 field[-2, -4, k] = field[-4, -7, k]
 
     def nord(self, field: FloatField, nord: Quantity):
-        for k in dace.map[0 : nord.shape[0]]:
+        for k in dace.map[0 : nord.shape[0]] @ dace.ScheduleType.GPU_Device:
             if nord[k] > 0:
                 if self._is_sw_corner:
                     field[0, 0, k] = field[0, 5, k]
@@ -160,7 +160,7 @@ class CopyCornersY(NDSLRuntime):
             )
 
     def __call__(self, field: FloatField):
-        for k in dace.map[0 : field.shape[2]]:
+        for k in dace.map[0 : field.shape[2]] @ dace.ScheduleType.GPU_Device:
             if self._is_sw_corner:
                 field[0, 0, k] = field[5, 0, k]
                 field[1, 0, k] = field[5, 1, k]
@@ -214,7 +214,7 @@ class CopyCornersY(NDSLRuntime):
                 field[-4, -2, k] = field[-7, -4, k]
 
     def nord(self, field: FloatField, nord: Quantity):
-        for k in dace.map[0 : nord.shape[0]]:
+        for k in dace.map[0 : nord.shape[0]] @ dace.ScheduleType.GPU_Device:
             if nord[k] > 0:
                 if self._is_sw_corner:
                     field[0, 0, k] = field[5, 0, k]
